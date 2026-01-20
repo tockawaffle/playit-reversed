@@ -1,0 +1,55 @@
+{
+	"name": "playit-reversed",
+	"version": "0.1.0-beta.4.1",
+	"author": {
+		"name": "Cete",
+		"email": "tocka@tockanest.ch",
+		"url": "https://github.com/tockanest"
+	},
+	"description": "Type-safe API client for playit.gg",
+	"type": "module",
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"bin": {
+		"playit": "./dist/cli.js"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"scripts": {
+		"build": "bun build src/index.ts src/cli.ts --outdir dist --target node && bun run build:types && bun run build:shebang",
+		"build:types": "tsc -p tsconfig.build.json",
+		"build:shebang": "node -e \"const fs=require('fs');const f='dist/cli.js';fs.writeFileSync(f,'#!/usr/bin/env node\\n'+fs.readFileSync(f))\"",
+		"prepublishOnly": "bun run build",
+		"playit:setup": "bun run src/cli.ts setup",
+		"playit:test": "bun run dist/cli.js setup"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@types/node": "^25.0.9"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"@better-fetch/fetch": "^1.1.21",
+		"dotenv": "^17.2.3",
+		"zod": "^4.3.5"
+	},
+	"keywords": [
+		"playit",
+		"playit.gg",
+		"tunnel",
+		"api",
+		"client"
+	],
+	"license": "MIT"
+}
