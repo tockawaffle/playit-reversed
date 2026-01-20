@@ -190,7 +190,7 @@ npx playit-reversed generate
 
 ```bash
 # Clone the repository
-git clone https://github.com/tockanest/playit-reversed.git
+git clone https://github.com/tockawaffle/playit-reversed.git
 cd playit-reversed
 
 # Install dependencies
@@ -207,12 +207,12 @@ bun run build
 
 Contributions are welcome! If you encounter any issues or have suggestions, please:
 
-1. Open an [issue](https://github.com/tockanest/playit-reversed/issues)
-2. Submit a [pull request](https://github.com/tockanest/playit-reversed/pulls)
+1. Open an [issue](https://github.com/tockawaffle/playit-reversed/issues)
+2. Submit a [pull request](https://github.com/tockawaffle/playit-reversed/pulls)
 
 ## License
 
-MIT © [Cete](https://github.com/tockanest)
+MIT © [Cete](https://github.com/tockawaffle)
 
 ---
 
