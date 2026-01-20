@@ -2,7 +2,23 @@
 
 A **type-safe API client** for [playit.gg](https://playit.gg) with code generation.
 
-> **Disclaimer**: This is not an official library and is not endorsed by PlayIt. Use of this library may violate [PlayIt's Terms of Service](https://playit.gg/terms). This was created as an experiment to understand how PlayIt's API works. Please read the TOS before using.
+> **Disclaimer**: 
+> 
+> This is **not an official library** and is **not endorsed by PlayIt**. This project was created as an experiment to understand how PlayIt's API works through reverse engineering. Use of this library may violate [PlayIt's Terms of Service](https://playit.gg/terms) - **please read the TOS before using**.
+> 
+> **Important Warnings:**
+> 
+> - **Account Risk**: Misuse or misconfiguration may result in your PlayIt account being banned or suspended. The authors are not responsible for any consequences of using this library.
+> - **No Warranty**: This library is provided "as-is" without any warranties or guarantees. It may break at any time due to changes in PlayIt's API or website structure.
+> - **API Stability**: PlayIt's internal API is not documented and may change without notice. This library may stop working at any time and updates are not guaranteed.
+> - **Security**: This library requires your session token (`__session` cookie). **Never share your token** or commit it to version control. Store it securely using environment variables.
+> - **Rate Limiting**: This project does not attempt to bypass any limitations set by PlayIt's website or API. All rate limits, validation errors, and rejections will be passed through to you and are not handled gracefully.
+> - **Reverse Engineering**: This library works by reverse engineering PlayIt's web interface. This approach is fragile and may violate PlayIt's Terms of Service.
+> - **No Support**: This is an experimental project. There is no official support channel, and issues may not be addressed promptly.
+> - **Liability**: By using this library, you accept all risks and agree that the authors, contributors, and maintainers are not liable for any damages, data loss, account bans, or other consequences resulting from the use of this software.
+> - **Removal Policy**: If PlayIt requests removal of this project, it will be immediately removed from NPM and made private on GitHub without any further notice from the authors. The project may be discontinued at any time at the authors' discretion or upon request from PlayIt.
+> 
+> **Use at your own risk.**
 
 ## Features
 
