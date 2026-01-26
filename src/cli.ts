@@ -10,7 +10,7 @@ import fs from "fs";
 import path from "path";
 import readline from "readline";
 import { PlayIt } from "./client";
-import generateGenericCode from "./code/generic";
+import generateGenericCode, { generateTypesFile } from "./code/generic";
 import type { PlayItData } from "./types";
 
 const ENV_FILE = ".env";
@@ -265,7 +265,7 @@ async function generateTypes(data?: PlayItData) {
         greTarget: ${a.greTarget ? `"${a.greTarget}"` : "null"},
     }`).join(",\n");
 
-	const content = generateGenericCode({
+	const config = {
 		agentIds,
 		agentNames,
 		agentKeys,
@@ -280,7 +280,10 @@ async function generateTypes(data?: PlayItData) {
 		allocations,
 		tunnels,
 		toIdentifier,
-	});
+	};
+
+	const content = generateGenericCode(config);
+	const typesContent = generateTypesFile(config);
 
 	// Ensure output directory exists
 	if (!fs.existsSync(GENERATED_DIR)) {
@@ -288,8 +291,11 @@ async function generateTypes(data?: PlayItData) {
 	}
 
 	const outputPath = path.join(GENERATED_DIR, "playit.ts");
+	const typesPath = path.join(GENERATED_DIR, "types.ts");
 	fs.writeFileSync(outputPath, content);
+	fs.writeFileSync(typesPath, typesContent);
 	console.log(`\n✓ Generated types at ${outputPath}`);
+	console.log(`✓ Generated types file at ${typesPath}`);
 }
 
 // CLI entry point

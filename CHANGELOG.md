@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Dates are using the NORMAL format of DD-MM-YYYY.
 
+## [0.1.0-beta.5.0.2] - 26-01-2026
+
+### Changed
+- Split code generation into two separate files: `playit.ts` (implementation) and `types.ts` (type definitions)
+- Refactored `src/code/types.ts` to use plain TypeScript types instead of Zod schemas
+- Updated imports to use the new separate types file structure
+- Exported `TunnelData` interface for external use
+
+### Thoughts
+- May God guide my hand while doing this, because I don't even know what is happening anymore.
+- It works tho, so it's fine (for now)
+
 ## [0.1.0-beta.5.0.0] - 26-01-2026
 
 ### Added

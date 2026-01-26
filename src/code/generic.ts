@@ -3,6 +3,15 @@ import path from "path";
 import type { Agent, Allocation, Tunnel } from "../types";
 
 /**
+ * Read the types from src/code/types.ts to include in generated types file
+ */
+function getTypesFromSource(): string {
+	const typesPath = path.join(__dirname, "types.ts");
+	const typesContent = fs.readFileSync(typesPath, "utf-8");
+	return typesContent;
+}
+
+/**
  * Configuration for code generation
  */
 export interface CodegenConfig {
@@ -37,9 +46,11 @@ export interface CodegenConfig {
 }
 
 /**
- * Generate the header comment for the generated file
+ * Generate the types file with codegen-specific types
  */
-function generateHeader(): string {
+export function generateTypesFile(config: CodegenConfig): string {
+	const sourceTypes = getTypesFromSource();
+	
 	return `/**
  * AUTO-GENERATED FILE - DO NOT EDIT
  * Generated at: ${new Date().toISOString()}
@@ -47,17 +58,11 @@ function generateHeader(): string {
  * Regenerate with: bun run playit:setup
  */
 
-import { createFetch } from "@better-fetch/fetch";
-import { spawn } from "child_process";
-import type { AllocationData as AllocationDataResponse, PlayitResponse } from "../src/code/types";
-`;
-}
+// ============ API Response Types ============
 
-/**
- * Generate type definitions
- */
-function generateTypes(config: CodegenConfig): string {
-	return `// ============ Types ============
+${sourceTypes}
+
+// ============ Codegen Types ============
 
 /** All available agent IDs */
 export type AgentId = ${config.agentIds};
@@ -98,14 +103,8 @@ export interface UpdateTunnelOptions {
     localPort?: number;
     localIp?: string;
 }
-`;
-}
 
-/**
- * Generate tunnel data type definitions
- */
-function generateTunnelDataTypes(): string {
-	return `// ============ Tunnel Data ============
+// ============ Tunnel Data ============
 
 /** Tunnel allocation when status is "allocated" */
 interface AllocatedTunnelAlloc {
@@ -137,7 +136,7 @@ interface UnallocatedTunnelAlloc {
 type TunnelAlloc = AllocatedTunnelAlloc | PendingTunnelAlloc | UnallocatedTunnelAlloc;
 
 /** Tunnel data structure */
-interface TunnelData {
+export interface TunnelData {
     readonly id: TunnelId;
     readonly name: TunnelName;
     readonly tunnelType: string | null;
@@ -169,6 +168,24 @@ export interface TunnelRef extends TunnelData {
 }
 `;
 }
+
+/**
+ * Generate the header comment for the generated file
+ */
+function generateHeader(): string {
+	return `/**
+ * AUTO-GENERATED FILE - DO NOT EDIT
+ * Generated at: ${new Date().toISOString()}
+ * 
+ * Regenerate with: bun run playit:setup
+ */
+
+import { createFetch } from "@better-fetch/fetch";
+import { spawn } from "child_process";
+import type { AllocationData as AllocationDataResponse, PlayitResponse, AgentId, AgentName, AgentKey, TunnelId, TunnelName, TunnelKey, AllocationKey, CreateTunnelOptions, UpdateTunnelOptions, TunnelRef, TunnelData } from "./types";
+`;
+}
+
 
 /**
  * Generate agent data type definitions
@@ -480,15 +497,12 @@ function getClass(): string {
 	const indexContentWithoutIgnore = indexContent.replace(/\/\*\* IGNORE_START \*\/[\s\S]*?\/\*\* IGNORE_END \*\//g, "");
 	return indexContentWithoutIgnore;
 }
-
 /**
  * Generate the complete TypeScript code from the configuration
  */
 export default function generateGenericCode(config: CodegenConfig): string {
 	const sections = [
 		generateHeader(),
-		generateTypes(config),
-		generateTunnelDataTypes(),
 		generateAgentDataTypes(),
 		generateActionImplementations(),
 		generateFactoryFunctions(),
@@ -501,3 +515,4 @@ export default function generateGenericCode(config: CodegenConfig): string {
 
 	return sections.join("\n");
 }
+

@@ -4,11 +4,10 @@ import { validate as uuidValidate } from "uuid";
 /** IGNORE_START */
 import { createFetch } from "@better-fetch/fetch";
 import {
-	type AgentId,
-	type CreateTunnelOptions,
 	regenerate,
 	tunnels
 } from "../../generated/playit";
+import type { AgentId, CreateTunnelOptions } from "../../generated/types";
 import type { AllocationData as AllocationDataResponse, PlayitResponse } from "./types";
 /** IGNORE_END */
 
