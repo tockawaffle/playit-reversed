@@ -1,0 +1,10 @@
+# Exclude unwanted folders from dist
+dist/generated/
+dist/src/
+
+# Development files
+src/
+generated/
+examples/
+.env
+*.tsbuildinfo

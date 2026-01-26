@@ -1,6 +1,6 @@
 {
 	"name": "playit-reversed",
-	"version": "0.1.0-beta.5.0.0",
+	"version": "0.1.0-beta.5.0.1",
 	"author": {
 		"name": "Cete",
 		"email": "tocka@tockanest.ch",
@@ -17,6 +17,7 @@
 			"types": "./dist/index.d.ts"
 		}
 	},
+	"homepage": "https://github.com/tockawaffle/playit-reversed",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/tockawaffle/playit-reversed.git"
@@ -29,8 +30,9 @@
 		"README.md"
 	],
 	"scripts": {
-		"build": "bun build src/index.ts src/cli.ts --outdir dist --target node && bun run build:types && bun run build:shebang",
+		"build": "bun build src/index.ts src/cli.ts --outdir dist --target node && bun run build:types && bun run build:cleanup && bun run build:shebang",
 		"build:types": "tsc -p tsconfig.build.json",
+		"build:cleanup": "node -e \"const fs=require('fs');const path=require('path');const removeDir=(dir)=>{const p=path.join('dist',dir);if(fs.existsSync(p)){fs.rmSync(p,{recursive:true,force:true});}};removeDir('generated');removeDir('src');\"",
 		"build:shebang": "node -e \"const fs=require('fs');const f='dist/cli.js';fs.writeFileSync(f,'#!/usr/bin/env node\\n'+fs.readFileSync(f))\"",
 		"prepublishOnly": "bun run build",
 		"playit:setup": "bun run src/cli.ts setup",
