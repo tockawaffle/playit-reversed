@@ -11,7 +11,7 @@ A **type-safe API client** for [playit.gg](https://playit.gg) with code generati
 > - **Account Risk**: Misuse or misconfiguration may result in your PlayIt account being banned or suspended. The authors are not responsible for any consequences of using this library.
 > - **No Warranty**: This library is provided "as-is" without any warranties or guarantees. It may break at any time due to changes in PlayIt's API or website structure.
 > - **API Stability**: PlayIt's internal API is not documented and may change without notice. This library may stop working at any time and updates are not guaranteed.
-> - **Security**: This library requires your session token (`__session` cookie). **Never share your token** or commit it to version control. Store it securely using environment variables.
+> - **Security**: This library requires your session token (`__session` cookie). **Never share your token** or commit it to version control. Store it securely using environment variables. This token also rotates in X days, so expect errors after X days to pop up.
 > - **Rate Limiting**: This project does not attempt to bypass any limitations set by PlayIt's website or API. All rate limits, validation errors, and rejections will be passed through to you and are not handled gracefully.
 > - **Reverse Engineering**: This library works by reverse engineering PlayIt's web interface. This approach is fragile and may violate PlayIt's Terms of Service.
 > - **No Support**: This is an experimental project. There is no official support channel, and issues may not be addressed promptly.
@@ -81,6 +81,23 @@ const tunnel = playit.tunnels.SSH;
 console.log(tunnel.origin.localPort);     // 22
 console.log(tunnel.alloc.assignedDomain); // "xxx.with.playit.plus"
 ```
+
+### Optional
+
+You may also use the following env keys for debug reasons:
+
+```env
+# Enable all playit logs
+DEBUG=playit:*
+
+# Enable only createStaticIpTunnel logs
+DEBUG=playit:createStaticIpTunnel
+
+# Enable multiple namespaces
+DEBUG=playit:createStaticIpTunnel,playit:other:*
+```
+
+For production, you should disable it and just not set the key.
 
 ## API Reference
 
@@ -153,6 +170,7 @@ interface CreateTunnelOptions {
 	portType?: "tcp" | "udp" | "both";
 	ipHostname?: AllocationKey; // The dedicated IP to be used
 	tunnelType: "dedicated-ip" | "shared-ip" | "shared-port"; // The tunnel type that will be created
+	regenerate?: boolean; // While this works, it WILL NOT work under serverless, requiring the setup script to run again.
 }
 ```
 
@@ -232,4 +250,4 @@ MIT © [Cete](https://github.com/tockawaffle)
 
 ---
 
-**Note**: Action methods (create, update, delete) are currently stubs that throw "Not implemented" errors. API integration is planned for future releases.
+**Note**: Action methods (update, delete) are currently stubs that throw "Not implemented" errors. API integration is planned for future releases.

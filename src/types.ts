@@ -10,8 +10,9 @@ export interface Agent {
 	status: string;
 }
 
-export interface TunnelAlloc {
-	status: string;
+/** Tunnel allocation when status is "allocated" */
+export interface AllocatedTunnelAlloc {
+	status: "allocated";
 	id: string;
 	ipHostname: string;
 	staticIp4: string;
@@ -24,6 +25,19 @@ export interface TunnelAlloc {
 	ipType: string;
 	region: string;
 }
+
+/** Tunnel allocation when status is "pending" */
+export interface PendingTunnelAlloc {
+	status: "pending";
+}
+
+/** Tunnel allocation when status is "unallocated" */
+export interface UnallocatedTunnelAlloc {
+	status: "unallocated";
+}
+
+/** Tunnel allocation - discriminated union based on status */
+export type TunnelAlloc = AllocatedTunnelAlloc | PendingTunnelAlloc | UnallocatedTunnelAlloc;
 
 export interface TunnelOrigin {
 	agentId: string;

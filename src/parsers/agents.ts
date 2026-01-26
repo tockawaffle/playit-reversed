@@ -1,4 +1,4 @@
-import type { Agent, Allocation, PlayItData, Tunnel } from "../types";
+import type { Agent, Allocation, PlayItData, Tunnel, TunnelAlloc } from "../types";
 
 interface RemixContext {
 	state: {
@@ -14,7 +14,7 @@ interface RemixContext {
 						port_count: number;
 						alloc: {
 							status: string;
-							data: {
+							data?: {
 								id: string;
 								ip_hostname: string;
 								static_ip4: string;
@@ -34,7 +34,7 @@ interface RemixContext {
 								agent_id: string;
 								agent_name: string;
 								local_ip: string;
-								local_port: number;
+								local_port: number | null;
 							};
 						};
 						domain: string | null;
@@ -111,37 +111,53 @@ export function parsePlayItHtml(html: string): PlayItData {
 		status: agent.status.state,
 	}));
 
-	const tunnels: Tunnel[] = accountData.tunnels.tunnels.map(tunnel => ({
-		id: tunnel.id,
-		name: tunnel.name,
-		tunnelType: tunnel.tunnel_type,
-		portType: tunnel.port_type,
-		portCount: tunnel.port_count,
-		alloc: {
-			status: tunnel.alloc.status,
-			id: tunnel.alloc.data.id,
-			ipHostname: tunnel.alloc.data.ip_hostname,
-			staticIp4: tunnel.alloc.data.static_ip4,
-			staticIp6: tunnel.alloc.data.static_ip6,
-			assignedDomain: tunnel.alloc.data.assigned_domain,
-			assignedSrv: tunnel.alloc.data.assigned_srv,
-			tunnelIp: tunnel.alloc.data.tunnel_ip,
-			portStart: tunnel.alloc.data.port_start,
-			portEnd: tunnel.alloc.data.port_end,
-			ipType: tunnel.alloc.data.ip_type,
-			region: tunnel.alloc.data.region,
-		},
-		origin: {
-			agentId: tunnel.origin.data.agent_id,
-			agentName: tunnel.origin.data.agent_name,
-			localIp: tunnel.origin.data.local_ip,
-			localPort: tunnel.origin.data.local_port,
-		},
-		domain: tunnel.domain,
-		active: tunnel.active,
-		region: tunnel.region,
-		proxyProtocol: tunnel.proxy_protocol,
-	}));
+	const tunnels: Tunnel[] = accountData.tunnels.tunnels.map(tunnel => {
+		// Handle different allocation statuses with discriminated union
+		let alloc: TunnelAlloc;
+		if (tunnel.alloc.status === "allocated" && tunnel.alloc.data) {
+			alloc = {
+				status: "allocated" as const,
+				id: tunnel.alloc.data.id,
+				ipHostname: tunnel.alloc.data.ip_hostname,
+				staticIp4: tunnel.alloc.data.static_ip4,
+				staticIp6: tunnel.alloc.data.static_ip6,
+				assignedDomain: tunnel.alloc.data.assigned_domain,
+				assignedSrv: tunnel.alloc.data.assigned_srv,
+				tunnelIp: tunnel.alloc.data.tunnel_ip,
+				portStart: tunnel.alloc.data.port_start,
+				portEnd: tunnel.alloc.data.port_end,
+				ipType: tunnel.alloc.data.ip_type,
+				region: tunnel.alloc.data.region,
+			};
+		} else if (tunnel.alloc.status === "pending") {
+			alloc = {
+				status: "pending" as const,
+			};
+		} else {
+			alloc = {
+				status: "unallocated" as const,
+			};
+		}
+
+		return {
+			id: tunnel.id,
+			name: tunnel.name,
+			tunnelType: tunnel.tunnel_type,
+			portType: tunnel.port_type,
+			portCount: tunnel.port_count,
+			alloc,
+			origin: {
+				agentId: tunnel.origin.data.agent_id,
+				agentName: tunnel.origin.data.agent_name,
+				localIp: tunnel.origin.data.local_ip,
+				localPort: tunnel.origin.data.local_port ?? 0,
+			},
+			domain: tunnel.domain,
+			active: tunnel.active,
+			region: tunnel.region,
+			proxyProtocol: tunnel.proxy_protocol,
+		};
+	});
 
 	let allocations: Allocation[] = [];
 	const allocData = context.state.loaderData["routes/account/settings/allocations"];
@@ -200,37 +216,53 @@ export function parseTunnelsHtml(html: string): Tunnel[] {
 		throw new Error("Could not find Remix context in HTML");
 	}
 
-	return context.state.loaderData["routes/account"].tunnels.tunnels.map(tunnel => ({
-		id: tunnel.id,
-		name: tunnel.name,
-		tunnelType: tunnel.tunnel_type,
-		portType: tunnel.port_type,
-		portCount: tunnel.port_count,
-		alloc: {
-			status: tunnel.alloc.status,
-			id: tunnel.alloc.data.id,
-			ipHostname: tunnel.alloc.data.ip_hostname,
-			staticIp4: tunnel.alloc.data.static_ip4,
-			staticIp6: tunnel.alloc.data.static_ip6,
-			assignedDomain: tunnel.alloc.data.assigned_domain,
-			assignedSrv: tunnel.alloc.data.assigned_srv,
-			tunnelIp: tunnel.alloc.data.tunnel_ip,
-			portStart: tunnel.alloc.data.port_start,
-			portEnd: tunnel.alloc.data.port_end,
-			ipType: tunnel.alloc.data.ip_type,
-			region: tunnel.alloc.data.region,
-		},
-		origin: {
-			agentId: tunnel.origin.data.agent_id,
-			agentName: tunnel.origin.data.agent_name,
-			localIp: tunnel.origin.data.local_ip,
-			localPort: tunnel.origin.data.local_port,
-		},
-		domain: tunnel.domain,
-		active: tunnel.active,
-		region: tunnel.region,
-		proxyProtocol: tunnel.proxy_protocol,
-	}));
+	return context.state.loaderData["routes/account"].tunnels.tunnels.map(tunnel => {
+		// Handle different allocation statuses with discriminated union
+		let alloc: TunnelAlloc;
+		if (tunnel.alloc.status === "allocated" && tunnel.alloc.data) {
+			alloc = {
+				status: "allocated" as const,
+				id: tunnel.alloc.data.id,
+				ipHostname: tunnel.alloc.data.ip_hostname,
+				staticIp4: tunnel.alloc.data.static_ip4,
+				staticIp6: tunnel.alloc.data.static_ip6,
+				assignedDomain: tunnel.alloc.data.assigned_domain,
+				assignedSrv: tunnel.alloc.data.assigned_srv,
+				tunnelIp: tunnel.alloc.data.tunnel_ip,
+				portStart: tunnel.alloc.data.port_start,
+				portEnd: tunnel.alloc.data.port_end,
+				ipType: tunnel.alloc.data.ip_type,
+				region: tunnel.alloc.data.region,
+			};
+		} else if (tunnel.alloc.status === "pending") {
+			alloc = {
+				status: "pending" as const,
+			};
+		} else {
+			alloc = {
+				status: "unallocated" as const,
+			};
+		}
+
+		return {
+			id: tunnel.id,
+			name: tunnel.name,
+			tunnelType: tunnel.tunnel_type,
+			portType: tunnel.port_type,
+			portCount: tunnel.port_count,
+			alloc,
+			origin: {
+				agentId: tunnel.origin.data.agent_id,
+				agentName: tunnel.origin.data.agent_name,
+				localIp: tunnel.origin.data.local_ip,
+				localPort: tunnel.origin.data.local_port ?? 0,
+			},
+			domain: tunnel.domain,
+			active: tunnel.active,
+			region: tunnel.region,
+			proxyProtocol: tunnel.proxy_protocol,
+		};
+	});
 }
 
 /**
