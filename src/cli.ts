@@ -10,8 +10,8 @@ import fs from "fs";
 import path from "path";
 import readline from "readline";
 import { PlayIt } from "./client";
-import generateGenericCode, { generateTypesFile } from "./code/generic";
-import type { PlayItData } from "./types";
+import generateGenericCode, { generateTypesFile, generateUserFile, type CodegenConfig } from "./code/generic";
+import { allocationOutputSchema, type AccountData, type Agent, type IpAllocation, type Tunnel } from "./code/main/bfetch/schemas/settings-allocations";
 
 const ENV_FILE = ".env";
 const ENV_KEY = "PLAYIT_API_KEY";
@@ -87,24 +87,25 @@ async function setup() {
 	});
 
 	try {
-		const data = await client.fetchAll();
-		console.log(`✓ Found ${data.agents.length} agent(s)`);
+		const fetchedData = await client.fetchAll();
+		console.log(`✓ Found ${fetchedData.agents.length} agent(s)`);
 
-		for (const agent of data.agents) {
-			const agentTunnels = data.tunnels.filter(t => t.origin.agentId === agent.id);
-			console.log(`  • ${agent.name} (${agent.status}) - ${agentTunnels.length} tunnel(s)`);
+		for (const agent of fetchedData.agents) {
+			const agentTunnels = fetchedData.tunnels.filter(t => t.origin.data.agent_id === agent.id);
+			const statusState = agent.status.state;
+			console.log(`  • ${agent.name} (${statusState}) - ${agentTunnels.length} tunnel(s)`);
 		}
 
-		console.log(`\n✓ Found ${data.tunnels.length} tunnel(s)`);
+		console.log(`\n✓ Found ${fetchedData.tunnels.length} tunnel(s)`);
 
-		for (const tunnel of data.tunnels) {
-			console.log(`  • ${tunnel.name} (${tunnel.portType}) → ${tunnel.origin.localIp}:${tunnel.origin.localPort}`);
+		for (const tunnel of fetchedData.tunnels) {
+			console.log(`  • ${tunnel.name} (${tunnel.port_type}) → ${tunnel.origin.data.local_ip}:${tunnel.origin.data.local_port}`);
 		}
 
-		console.log(`\n✓ Found ${data.allocations.length} IP allocation(s)`);
+		console.log(`\n✓ Found ${fetchedData.allocations.length} IP allocation(s)`);
 
-		for (const alloc of data.allocations) {
-			console.log(`  • ${alloc.ipHostname} (${alloc.region}, ${alloc.ipType})`);
+		for (const alloc of fetchedData.allocations) {
+			console.log(`  • ${alloc.ip_hostname} (${alloc.region}, ${alloc.ip_type})`);
 		}
 
 		// Save data for regenerate
@@ -112,29 +113,26 @@ async function setup() {
 			fs.mkdirSync(GENERATED_DIR, { recursive: true });
 		}
 
-		if (!fs.existsSync(DATA_FILE)) {
-			fs.writeFileSync(DATA_FILE, JSON.stringify({
-				...data,
-				updatedAt: new Date().toISOString()
-			}, null, 2));
-		} else {
-			fs.writeFileSync(DATA_FILE, JSON.stringify({
-				...data,
-				updatedAt: new Date().toISOString()
-			}, null, 2));
-		}
+		const dataToSave = {
+			...fetchedData,
+			updatedAt: new Date().toISOString()
+		};
+
+		fs.writeFileSync(DATA_FILE, JSON.stringify(dataToSave, null, 2));
 
 		// Generate types
-		await generateTypes(data);
+		await generateTypes(fetchedData);
 
 		console.log("\n✅ Setup complete!\n");
 		console.log("Usage:");
 		console.log('  import { playit } from "./generated/playit";\n');
 		console.log("  // Access agents");
-		console.log(`  const agent = playit.agents.${data.agents[0]?.name || "my_agent"};`);
+		const firstAgentName = fetchedData.agents[0]?.name || "my_agent";
+		console.log(`  const agent = playit.agents.${toIdentifier(firstAgentName)};`);
 		console.log("  console.log(agent.tunnels);\n");
 		console.log("  // Access tunnels directly");
-		console.log(`  const tunnel = playit.tunnels.${data.tunnels[0]?.name || "my_tunnel"};`);
+		const firstTunnelName = fetchedData.tunnels[0]?.name || "my_tunnel";
+		console.log(`  const tunnel = playit.tunnels.${toIdentifier(firstTunnelName)};`);
 		console.log("  console.log(tunnel.alloc.assignedDomain);\n");
 
 	} catch (error) {
@@ -143,25 +141,49 @@ async function setup() {
 	}
 }
 
-async function generateTypes(data?: PlayItData) {
+// Generate type-safe identifiers
+const toIdentifier = (name: string) => name.replace(/[^a-zA-Z0-9]/g, "_");
+
+interface StoredData {
+	tunnels: Tunnel[];
+	agents: Agent[];
+	allocations: IpAllocation[];
+	account: AccountData["account"];
+	updatedAt?: string;
+}
+
+async function generateTypes(data?: StoredData): Promise<void> {
 	// Load from data file if not provided
 	if (!data) {
 		if (!fs.existsSync(DATA_FILE)) {
 			console.error("❌ No data found. Run 'bun run playit:setup' first.");
 			process.exit(1);
 		}
-		data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8")) as PlayItData;
+		data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8")) as StoredData;
+
+		// Validate the data using the new schema
+		const routesAccount = allocationOutputSchema.shape.state.shape.loaderData.shape["routes/account"];
+		const validations = [
+			{ key: "tunnels", result: routesAccount.shape.tunnels.shape.tunnels.safeParse(data.tunnels) },
+			{ key: "agents", result: routesAccount.shape.agents.shape.agents.safeParse(data.agents) },
+			{ key: "allocations", result: allocationOutputSchema.shape.state.shape.loaderData.shape["routes/account/settings/allocations"].shape.ips.safeParse(data.allocations) },
+			{ key: "account", result: allocationOutputSchema.shape.state.shape.loaderData.shape["routes/account"].safeParse(data.account) },
+		];
+
+		const failures = validations.filter(v => !v.result.success);
+		if (failures.length > 0) {
+			console.error("❌ Invalid data:");
+			failures.forEach(({ key, result }) => console.error(`  ${key}:`, result.error));
+			process.exit(1);
+		}
 	}
 
-	const { agents, tunnels, allocations } = data;
+	const { agents, tunnels, allocations, account } = data;
 
 	if (!agents || agents.length === 0) {
 		console.error("❌ No agents found");
 		process.exit(1);
 	}
-
-	// Generate type-safe identifiers
-	const toIdentifier = (name: string) => name.replace(/[^a-zA-Z0-9]/g, "_");
 
 	// Handle duplicate tunnel names by appending index
 	const tunnelKeyCounts = new Map<string, number>();
@@ -184,7 +206,7 @@ async function generateTypes(data?: PlayItData) {
 
 	// Pre-compute keys
 	const tunnelKeys = tunnels.map(t => getTunnelKey(t.name));
-	const allocKeys = allocations.map(a => getAllocKey(a.ipHostname));
+	const allocKeys = allocations.map(a => getAllocKey(a.ip_hostname));
 
 	// Agent types
 	const agentIds = agents.map(a => `"${a.id}"`).join(" | ");
@@ -207,28 +229,35 @@ async function generateTypes(data?: PlayItData) {
 		? allocKeys.map(k => `"${k}"`).join(" | ")
 		: "never";
 
-	// Generate tunnel instances
+	// Generate tunnel instances using the new snake_case schema
 	const tunnelInstances = tunnels.map((t, i) => {
 		// Generate alloc object based on status (discriminated union)
+		// The new schema has alloc.data with optional fields based on status
 		let allocObject: string;
-		if (t.alloc.status === "allocated") {
+		if (t.alloc.status === "allocated" && t.alloc.data) {
+			const allocData = t.alloc.data;
 			allocObject = `{
             status: "allocated" as const,
-            id: "${t.alloc.id}",
-            ipHostname: "${t.alloc.ipHostname}",
-            staticIp4: "${t.alloc.staticIp4}",
-            staticIp6: "${t.alloc.staticIp6}",
-            assignedDomain: "${t.alloc.assignedDomain}",
-            assignedSrv: ${t.alloc.assignedSrv ? `"${t.alloc.assignedSrv}"` : "null"},
-            tunnelIp: "${t.alloc.tunnelIp}",
-            portStart: ${t.alloc.portStart},
-            portEnd: ${t.alloc.portEnd},
-            ipType: "${t.alloc.ipType}",
-            region: "${t.alloc.region}",
+            id: "${allocData.id || ""}",
+            ipHostname: "${allocData.ip_hostname || ""}",
+            staticIp4: "${allocData.static_ip4 || ""}",
+            staticIp6: "${allocData.static_ip6 || ""}",
+            assignedDomain: "${allocData.assigned_domain || ""}",
+            assignedSrv: ${allocData.assigned_srv ? `"${allocData.assigned_srv}"` : "null"},
+            tunnelIp: "${allocData.tunnel_ip || ""}",
+            portStart: ${allocData.port_start ?? 0},
+            portEnd: ${allocData.port_end ?? 0},
+            ipType: "${allocData.ip_type || ""}",
+            region: "${allocData.region || ""}",
         }`;
 		} else if (t.alloc.status === "pending") {
 			allocObject = `{
             status: "pending" as const,
+        }`;
+		} else if (t.alloc.status === "disabled" && t.alloc.data?.reason) {
+			allocObject = `{
+            status: "disabled" as const,
+            reason: "${t.alloc.data.reason}",
         }`;
 		} else {
 			allocObject = `{
@@ -239,33 +268,40 @@ async function generateTypes(data?: PlayItData) {
 		return `    ${tunnelKeys[i]}: {
         id: "${t.id}" as const,
         name: "${t.name}" as const,
-        tunnelType: ${t.tunnelType ? `"${t.tunnelType}"` : "null"},
-        portType: "${t.portType}" as const,
-        portCount: ${t.portCount},
+        tunnelType: ${t.tunnel_type ? `"${t.tunnel_type}"` : "null"},
+        portType: "${t.port_type}" as const,
+        portCount: ${t.port_count},
         alloc: ${allocObject},
         origin: {
-            agentId: "${t.origin.agentId}" as AgentId,
-            agentName: "${t.origin.agentName}" as AgentName,
-            localIp: "${t.origin.localIp}",
-            localPort: ${t.origin.localPort},
+            agentId: "${t.origin.data.agent_id}" as AgentId,
+            agentName: "${t.origin.data.agent_name}" as AgentName,
+            localIp: "${t.origin.data.local_ip}",
+            localPort: ${t.origin.data.local_port ?? "null"},
         },
         domain: ${t.domain ? `"${t.domain}"` : "null"},
+        firewallId: ${t.firewall_id ? `"${t.firewall_id}"` : "null"},
+        ratelimit: ${t.ratelimit ? `{ bytesPerSecond: ${t.ratelimit.bytes_per_second}, packetsPerSecond: ${t.ratelimit.packets_per_second} }` : "null"},
         active: ${t.active},
+        disabledReason: ${t.disabled_reason ? `"${t.disabled_reason}"` : "null"},
         region: "${t.region}",
-        proxyProtocol: ${t.proxyProtocol ? `"${t.proxyProtocol}"` : "null"},
+        expireNotice: ${t.expire_notice ? `"${t.expire_notice}"` : "null"},
+        proxyProtocol: ${t.proxy_protocol ? `"${t.proxy_protocol}"` : "null"},
+        hostnameVerifyLevel: "${t.hostname_verify_level}" as const,
+        agentOverLimit: ${t.agent_over_limit},
+        createdAt: "${t.created_at}",
     }`;
 	}).join(",\n");
 
-	// Generate allocation instances
+	// Generate allocation instances using the new snake_case schema
 	const allocationInstances = allocations.map((a, i) => `    "${allocKeys[i]}": {
-        ipHostname: "${a.ipHostname}" as const,
-        subId: ${a.subId ? `"${a.subId}"` : "null"},
+        ipHostname: "${a.ip_hostname}" as const,
+        subId: ${a.sub_id ? `"${a.sub_id}"` : "null"},
         region: "${a.region}" as const,
-        ipType: "${a.ipType}" as const,
-        greTarget: ${a.greTarget ? `"${a.greTarget}"` : "null"},
+        ipType: "${a.ip_type}" as const,
+        greTarget: ${a.gre_target ? `"${a.gre_target}"` : "null"},
     }`).join(",\n");
 
-	const config = {
+	const config: CodegenConfig = {
 		agentIds,
 		agentNames,
 		agentKeys,
@@ -280,10 +316,12 @@ async function generateTypes(data?: PlayItData) {
 		allocations,
 		tunnels,
 		toIdentifier,
+		user: account
 	};
 
 	const content = generateGenericCode(config);
 	const typesContent = generateTypesFile(config);
+	const userContent = generateUserFile(config);
 
 	// Ensure output directory exists
 	if (!fs.existsSync(GENERATED_DIR)) {
@@ -292,10 +330,13 @@ async function generateTypes(data?: PlayItData) {
 
 	const outputPath = path.join(GENERATED_DIR, "playit.ts");
 	const typesPath = path.join(GENERATED_DIR, "types.ts");
+	const userPath = path.join(GENERATED_DIR, "user.ts");
 	fs.writeFileSync(outputPath, content);
 	fs.writeFileSync(typesPath, typesContent);
+	fs.writeFileSync(userPath, userContent);
 	console.log(`\n✓ Generated types at ${outputPath}`);
 	console.log(`✓ Generated types file at ${typesPath}`);
+	console.log(`✓ Generated user file at ${userPath}`);
 }
 
 // CLI entry point
@@ -314,3 +355,4 @@ switch (command) {
 		console.log("  bun run src/cli.ts setup    - Initial setup");
 		console.log("  bun run src/cli.ts generate - Regenerate types");
 }
+

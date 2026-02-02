@@ -11,12 +11,13 @@ A **type-safe API client** for [playit.gg](https://playit.gg) with code generati
 > - **Account Risk**: Misuse or misconfiguration may result in your PlayIt account being banned or suspended. The authors are not responsible for any consequences of using this library.
 > - **No Warranty**: This library is provided "as-is" without any warranties or guarantees. It may break at any time due to changes in PlayIt's API or website structure.
 > - **API Stability**: PlayIt's internal API is not documented and may change without notice. This library may stop working at any time and updates are not guaranteed.
-> - **Security**: This library requires your session token (`__session` cookie). **Never share your token** or commit it to version control. Store it securely using environment variables. This token also rotates in X days, so expect errors after X days to pop up.
+> - **Security**: This library requires your session token (`__session` cookie). **Never share your token** or commit it to version control. Store it securely using environment variables. This token also rotates in X days, so expect errors after X days to pop up. These kind of errors are also tricky, please be aware that the API might return a 200 status code even if your token is invalid. We do not handle these cases.
 > - **Rate Limiting**: This project does not attempt to bypass any limitations set by PlayIt's website or API. All rate limits, validation errors, and rejections will be passed through to you and are not handled gracefully.
 > - **Reverse Engineering**: This library works by reverse engineering PlayIt's web interface. This approach is fragile and may violate PlayIt's Terms of Service.
 > - **No Support**: This is an experimental project. There is no official support channel, and issues may not be addressed promptly.
 > - **Liability**: By using this library, you accept all risks and agree that the authors, contributors, and maintainers are not liable for any damages, data loss, account bans, or other consequences resulting from the use of this software.
 > - **Removal Policy**: If PlayIt requests removal of this project, it will be immediately removed from NPM and made private on GitHub without any further notice from the authors. The project may be discontinued at any time at the authors' discretion or upon request from PlayIt.
+> - **PlayIt Beta Website Notice**: Development will also target the PlayIt beta website. However, as a solo maintainer, there may be delays and occasional issues due to the need to frequently switch between versions for testing.
 > 
 > **Use at your own risk.**
 
@@ -51,8 +52,8 @@ npx playit-reversed@beta setup
 
 This will:
 1. Prompt for your PlayIt session token (from browser cookies)
-2. Fetch all your agents and tunnels
-3. Generate a `generated/playit.ts` file with fully typed data
+2. Fetch all your agents and tunnels from the PlayIt API
+3. Generate `generated/playit.ts`, `generated/types.ts`, and `generated/user.ts` with fully typed data and account info (including CSRF token for actions)
 
 ### 2. Get your session token
 
@@ -60,12 +61,13 @@ This will:
 2. Open DevTools (`F12`) → **Application** → **Cookies**
 3. Copy the value of `__session`
 
-### 3. Use the generated types
+### 3. Use the generated API
 
 ```typescript
 import { playit } from "./generated/playit";
+import { user } from "./generated/user";
 
-// Access agents (fully typed!)
+// Access agents (fully typed — keys are derived from agent names, e.g. my_server)
 const agent = playit.agents.my_server;
 console.log(agent.id);       // "a86750f2-..."
 console.log(agent.status);   // "connected"
@@ -76,103 +78,48 @@ for (const tunnel of agent.tunnels) {
     console.log(`${tunnel.name}: ${tunnel.alloc.assignedDomain}`);
 }
 
-// Access tunnels directly
+// Access tunnels directly (keys derived from tunnel names, e.g. SSH, Minecraft_Java)
 const tunnel = playit.tunnels.SSH;
 console.log(tunnel.origin.localPort);     // 22
 console.log(tunnel.alloc.assignedDomain); // "xxx.with.playit.plus"
+
+// Create a dedicated IP tunnel (TCP)
+await agent.createStaticIpTunnel(
+	{
+		dedicated_ip: playit.allocations["some_ip"].ipHostname,
+		__csrf_token: user.csrfToken,
+		public_port: 22,
+		enabled: "on",
+		tunnel_type: "tcp",
+		"tunnel-desc": "SSH",
+		port_count: 1,
+	},
+	true,  // waitForAllocation
+	false  // waitForAllocatedStatus
+);
 ```
 
-### Optional
+### Operating by ID (tunnels and agents not in codegen)
 
-You may also use the following env keys for debug reasons:
-
-```env
-# Enable all playit logs
-DEBUG=playit:*
-
-# Enable only createStaticIpTunnel logs
-DEBUG=playit:createStaticIpTunnel
-
-# Enable multiple namespaces
-DEBUG=playit:createStaticIpTunnel,playit:other:*
-```
-
-For production, you should disable it and just not set the key.
-
-## API Reference
-
-### Agents
-
-Each agent has the following properties and methods:
+When you have a tunnel or agent **by ID only** (e.g. newly created, or from another source), use `playit.tunnel(id)` and `playit.agent(id)` to get a minimal ref with the same action methods:
 
 ```typescript
-interface AgentRef {
-    // Properties
-    readonly id: AgentId;
-    readonly name: AgentName;
-    readonly clientIp: string;
-    readonly tunnelIp: string;
-    readonly version: string;
-    readonly os: string;
-    readonly status: string;
-    readonly tunnels: TunnelRef[];
+// Tunnel by ID (e.g. created via createStaticIpTunnel, not yet in generated types)
+const tunnelRef = playit.tunnel("some-tunnel-uuid");
+await tunnelRef.delete();
+await tunnelRef.update({ name: "New Name", localPort: 8080 });
+await tunnelRef.enable();  // WIP: may throw "Not implemented"
+await tunnelRef.disable(); // WIP: may throw "Not implemented"
 
-		// Works but only for dedicated IPs.
-    createTunnel(options: CreateTunnelOptions): Promise<void>;
-    // Methods (WIP - not yet implemented)
-    delete(): Promise<void>;
-    rename(newName: string): Promise<void>;
-}
+// Agent by ID
+const agentRef = playit.agent("some-agent-uuid");
+await agentRef.rename("new-name");       // WIP: may throw "Not implemented"
+await agentRef.createStaticIpTunnel(options, true, false);
+await agentRef.delete();                // WIP: may throw "Not implemented"
 ```
 
-### Tunnels
-
-Each tunnel has the following properties and methods:
-
-```typescript
-interface TunnelRef {
-    // Properties
-    readonly id: TunnelId;
-    readonly name: TunnelName;
-    readonly tunnelType: string | null;
-    readonly portType: "tcp" | "udp" | "both";
-    readonly portCount: number;
-    readonly alloc: {
-        readonly assignedDomain: string;
-        readonly tunnelIp: string;
-        readonly portStart: number;
-        readonly portEnd: number;
-        // ... more fields
-    };
-    readonly origin: {
-        readonly agentId: AgentId;
-        readonly agentName: AgentName;
-        readonly localIp: string;
-        readonly localPort: number;
-    };
-    readonly active: boolean;
-    readonly region: string;
-
-    // Methods (WIP - not yet implemented)
-    delete(): Promise<void>;
-    update(options: UpdateTunnelOptions): Promise<void>;
-    enable(): Promise<void>;
-    disable(): Promise<void>;
-}
-```
-
-### Create Tunnel Options
-
-```typescript
-interface CreateTunnelOptions {
-	description: string; // The description of the tunnel, needed for TCP/UDP/BOTH
-	localPort: number; // The number of the port that will be used
-	portType?: "tcp" | "udp" | "both";
-	ipHostname?: AllocationKey; // The dedicated IP to be used
-	tunnelType: "dedicated-ip" | "shared-ip" | "shared-port"; // The tunnel type that will be created
-	regenerate?: boolean; // While this works, it WILL NOT work under serverless, requiring the setup script to run again.
-}
-```
+> **Warning — Validation before actions**  
+> Before running any action (delete, update, enable, disable, rename, etc.), the library **fetches the current list of tunnels and agents** from the API to verify that the ID you passed exists and belongs to your account. If the ID is invalid or no longer available, the action will not be performed and you will get an error instead of a failed API call. This extra request happens for each action when using `playit.tunnel(id)` or `playit.agent(id)`.
 
 ### Regenerating Types
 
@@ -186,20 +133,42 @@ Or programmatically:
 
 ```typescript
 await playit.regenerate();
-// Note: You may need to restart your app to use the new types
+// Note: You may need to restart your app to use the new types. This does not work for serverless.
 ```
 
 Note: If you create a tunnel or agent manually at the website, you will need to manually regenerate the types as currently there's no way for a third-party to receive these kind of updates.
 
+You don't need to regenerate the types file every time you create a new tunnel; however, it's strongly recommended to save any relevant data from the new tunnel yourself so you can use it right away. This ensures your application can work with the tunnel immediately, even before regenerating types.
+
+## API Reference
+
+The generated `playit` object (from `./generated/playit`) exposes:
+
+| Property / method     | Description                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `playit.agents`       | Record of all agents (key = identifier from name, e.g. `my_server`). Each value is an `AgentRef`.            |
+| `playit.tunnels`      | Record of all tunnels (key = identifier from name). Each value is a `TunnelRef`.                             |
+| `playit.allocations`  | Record of all IP allocations (key = identifier from hostname). Use for `dedicated_ip` when creating tunnels. |
+| `playit.tunnel(id)`   | Returns a minimal `TunnelRef` by ID (for tunnels not in codegen).                                            |
+| `playit.agent(id)`    | Returns a minimal `AgentRef` by ID (for agents not in codegen).                                              |
+| `playit.agentIds`     | Array of all agent IDs.                                                                                      |
+| `playit.agentNames`   | Array of all agent names.                                                                                    |
+| `playit.tunnelIds`    | Array of all tunnel IDs.                                                                                     |
+| `playit.tunnelNames`  | Array of all tunnel names.                                                                                   |
+| `playit.regenerate()` | Re-runs setup (fetch + codegen). Does not work in serverless.                                                |
+
+**AgentRef** (from `./generated/types`): `id`, `name`, `clientIp?`, `tunnelIp?`, `version`, `os`, `status`, `tunnels` (array of `TunnelRef`); methods: `createStaticIpTunnel(options, waitForAllocation, waitForAllocatedStatus)`, `delete()`, `rename(newName)`.
+
+**TunnelRef**: tunnel data (`id`, `name`, `tunnelType`, `portType`, `portCount`, `alloc`, `origin`, `domain`, etc.); methods: `delete()`, `update({ name?, localPort?, localIp? })`, `enable()`, `disable()`.
+
+**CreateStaticIpTunnelOptions** (for TCP/UDP/both): `dedicated_ip` (allocation hostname), `__csrf_token` (from `user.csrfToken` in `./generated/user`), `public_port`, `enabled: "on" | "off"`, `tunnel_type: "tcp" | "udp" | "both"`, `"tunnel-desc": string`, `port_count: number`. For other tunnel types (e.g. Minecraft), see `CreateStaticIpTunnelOptions` in `./generated/types`.
+
 ## How It Works
 
-1. **Setup** fetches HTML from `https://playit.gg/account/agents`
-2. The page contains a **Remix context** with all your account data (agents + tunnels)
-3. This data is parsed and used to generate a TypeScript file
-4. The generated file contains:
-   - Type definitions (`AgentId`, `TunnelId`, etc.)
-   - Static data for all agents and tunnels
-   - Action methods for CRUD operations
+1. **Setup** calls the PlayIt API endpoint `@get/account/settings/allocations` (via bfetch), which returns JSON with loader data for routes/account (agents + tunnels) and routes/account/settings/allocations (IP allocations).
+2. The response is validated with Zod schemas and stored in `generated/playit-data.json` (including account overview and CSRF token).
+3. Codegen reads this data and generates `generated/playit.ts`, `generated/types.ts`, and `generated/user.ts`.
+4. The generated files contain type definitions (`AgentId`, `TunnelId`, `TunnelKey`, `AllocationKey`, etc.), static instances for all agents and tunnels, and action methods that call `playit-reversed` (e.g. `createStaticIpTunnel`, `deleteTunnel`, `updateTunnel`).
 
 ## Environment Variables
 
@@ -213,10 +182,10 @@ PLAYIT_API_KEY=your_session_token_here # Remove the "__session=" part of the tok
 ## CLI Commands
 
 ```bash
-# Initial setup (prompts for token, fetches data, generates types)
+# Initial setup (prompts for token, fetches data, generates playit.ts, types.ts, user.ts)
 npx playit-reversed setup
 
-# Regenerate types from cached data (no API call)
+# Regenerate types from cached data in generated/playit-data.json (no API call)
 npx playit-reversed generate
 ```
 
@@ -250,4 +219,4 @@ MIT © [Cete](https://github.com/tockawaffle)
 
 ---
 
-**Note**: Action methods (update, delete) are currently stubs that throw "Not implemented" errors. API integration is planned for future releases.
+**Note**: Some action methods (e.g. tunnel delete/update/rename, createStaticIpTunnel) are implemented; others (e.g. enable/disable tunnel, agent delete/rename) are still WIP and may throw "Not implemented" until their API endpoints are integrated.

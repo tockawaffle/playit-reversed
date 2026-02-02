@@ -1,86 +1,12 @@
-// ============ Entity Types ============
+/**
+ * Re-export types from the schema definitions
+ */
 
-export interface Agent {
-	id: string;
-	name: string;
-	clientIp: string;
-	tunnelIp: string;
-	version: string;
-	os: string;
-	status: string;
-}
+export type {
+	AccountData, Agent, AgentRouting, AgentStatus,
+	AgentStatusData, AgentVersion, Firewalls, IpAllocation, Overview, Session, TcpAlloc, Tunnel,
+	TunnelAlloc, TunnelAllocAssignment, TunnelAllocData, TunnelOrigin,
+	TunnelOriginData,
+	TunnelRatelimit, UdpAlloc
+} from "./code/main/bfetch/schemas/settings-allocations";
 
-/** Tunnel allocation when status is "allocated" */
-export interface AllocatedTunnelAlloc {
-	status: "allocated";
-	id: string;
-	ipHostname: string;
-	staticIp4: string;
-	staticIp6: string;
-	assignedDomain: string;
-	assignedSrv: string | null;
-	tunnelIp: string;
-	portStart: number;
-	portEnd: number;
-	ipType: string;
-	region: string;
-}
-
-/** Tunnel allocation when status is "pending" */
-export interface PendingTunnelAlloc {
-	status: "pending";
-}
-
-/** Tunnel allocation when status is "unallocated" */
-export interface UnallocatedTunnelAlloc {
-	status: "unallocated";
-}
-
-/** Tunnel allocation - discriminated union based on status */
-export type TunnelAlloc = AllocatedTunnelAlloc | PendingTunnelAlloc | UnallocatedTunnelAlloc;
-
-export interface TunnelOrigin {
-	agentId: string;
-	agentName: string;
-	localIp: string;
-	localPort: number;
-}
-
-export interface Tunnel {
-	id: string;
-	name: string;
-	tunnelType: string | null;
-	portType: string;
-	portCount: number;
-	alloc: TunnelAlloc;
-	origin: TunnelOrigin;
-	domain: string | null;
-	active: boolean;
-	region: string;
-	proxyProtocol: string | null;
-}
-
-export interface Allocation {
-	ipHostname: string;
-	subId: string | null;
-	region: string;
-	ipType: string;
-	greTarget: string | null;
-}
-
-// ============ Client Options ============
-
-export interface PlayItOptions {
-	/** Your playit.gg session token */
-	authorizationToken?: string;
-	/** Base URL for the API (default: https://playit.gg) */
-	baseUrl?: string;
-}
-
-// ============ Fetched Data ============
-
-export interface PlayItData {
-	agents: Agent[];
-	tunnels: Tunnel[];
-	allocations: Allocation[];
-}
