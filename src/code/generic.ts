@@ -101,37 +101,6 @@ ${getHeaderImports()}
 }
 
 /**
- * Generate agent data type definitions
- * Uses type references from the generated types.ts file
- */
-function generateAgentDataTypes(): string {
-	return `// ============ Agent Data ============
-
-/** Agent data structure. Offline agents have no status.data, so clientIp/tunnelIp are omitted. */
-interface AgentData {
-	readonly id: AgentId;
-	readonly name: AgentName;
-	readonly clientIp?: string;
-	readonly tunnelIp?: string;
-	readonly version: string;
-	readonly os: string;
-	readonly status: string;
-	readonly tunnels: readonly TunnelRef[];
-}
-
-/** Agent with actions */
-export interface AgentRef extends AgentData {
-	/** Create a new tunnel for this agent */
-	createStaticIpTunnel(options: CreateStaticIpTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
-	/** Delete this agent */
-	delete(): Promise<void>;
-	/** Rename this agent */
-	rename(newName: string): Promise<void>;
-}
-`;
-}
-
-/**
  * Generate action imports
  * Actions are implemented in src/code/actions.ts and imported here
  */
@@ -176,22 +145,46 @@ export const ALL_TUNNEL_NAMES: TunnelName[] = [${config.tunnels.map(t => `"${t.n
 
 /**
  * Generate agent instances and exports
- * Uses the new snake_case schema: agent.status.state, agent.status.data.client_addr, etc.
- * Offline agents have no status.data, so clientIp/tunnelIp are omitted.
+ * Generates complete AgentData structure matching the schema
  */
 function generateAgentInstances(config: CodegenConfig): string {
 	const agentDataEntries = config.agents.map(a => {
-		const data = a.status.data;
-		const hasData = data != null;
-		const fields = [
-			`id: "${a.id}" as const`,
-			`name: "${a.name}" as const`,
-			...(hasData ? [`clientIp: "${data.client_addr}"`, `tunnelIp: "${data.tunnel_addr}"`] : []),
-			`version: "${a.agent_version.version}"`,
-			`os: "${a.agent_version.platform}" as const`,
-			`status: "${a.status.state}" as const`,
-		];
-		return `	${config.toIdentifier(a.name)}: {\n		${fields.join(",\n		")}\n	}`;
+		const statusData = a.status.data;
+		const hasStatusData = statusData != null;
+
+		const statusDataStr = hasStatusData
+			? `		data: {
+			dataCenterId: ${statusData.data_center_id},
+			dataCenterName: "${statusData.data_center_name}",
+			clientAddr: "${statusData.client_addr}",
+			tunnelAddr: "${statusData.tunnel_addr}",
+			activityLatestEpochMs: ${statusData.activity_latest_epoch_ms},
+			activityStartEpochMs: ${statusData.activity_start_epoch_ms}
+		}`
+			: `		data: null`;
+
+		return `	${config.toIdentifier(a.name)}: {
+		id: "${a.id}" as const,
+		name: "${a.name}" as const,
+		createdAt: "${a.created_at}",
+		agentVersion: {
+			variantId: "${a.agent_version.variant_id}",
+			schemaId: "${a.agent_version.schema_id}",
+			name: "${a.agent_version.name}",
+			version: "${a.agent_version.version}",
+			platform: "${a.agent_version.platform}"
+		},
+		selfManaged: ${a.self_managed},
+		status: {
+			state: "${a.status.state}" as const,
+${statusDataStr}
+		},
+		routing: {
+			type: "${a.routing.type}"
+		},
+		routingDisabledIp6: ${a.routing_disabled_ip6},
+		sortNum: ${a.sort_num}
+	}`;
 	}).join(",\n");
 
 	const agentRefEntries = config.agents.map(a => {
@@ -200,7 +193,7 @@ function generateAgentInstances(config: CodegenConfig): string {
 			.filter(({ tunnel }) => tunnel.origin.data.agent_id === a.id)
 			.map(({ key }) => `tunnels["${key}"]`)
 			.join(", ");
-		return `	${config.toIdentifier(a.name)}: createAgentRef(_agentData.${config.toIdentifier(a.name)} as AgentData, [${agentTunnelRefs}], "${config.user.csrfToken}")`;
+		return `	${config.toIdentifier(a.name)}: createAgentRef(_agentData.${config.toIdentifier(a.name)}, [${agentTunnelRefs}], "${config.user.csrfToken}")`;
 	}).join(",\n");
 
 	return `// ============ Agent Instances ============
@@ -363,7 +356,6 @@ export default function generateGenericCode(config: CodegenConfig): string {
 	const sections = [
 		generateHeader(),
 		generateActionImports(),
-		generateAgentDataTypes(),
 		generateFactoryFunctions(),
 		generateTunnelInstances(config),
 		generateAgentInstances(config),

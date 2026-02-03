@@ -8,8 +8,9 @@
 import Debug from "debug";
 import { createPlayItFetch } from "./main/bfetch";
 import type { AddDedicatedIpSchemaBody } from "./main/bfetch/schemas/add-dedicated-ip";
+import type { AddSharedSchemaBody } from "./main/bfetch/schemas/add-shared";
 import { allocationOutputSchema, type TunnelAllocData } from "./main/bfetch/schemas/settings-allocations";
-import type { CreateStaticIpTunnelOptions, UpdateTunnelOptions } from "./templates/types";
+import type { CreateRegionTunnelOptions, CreateStaticIpTunnelOptions, UpdateTunnelOptions } from "./templates/types";
 
 const debugCSITAction = Debug("playit:actions:createStaticIpTunnel");
 
@@ -206,16 +207,79 @@ export async function createStaticIpTunnel(
 		return await checkAllocationStatus(data as { allocation: string; status: number }, options.dedicated_ip);
 	}
 
+	return {
+		ipHostname: options.dedicated_ip,
+		status: "disabled",
+		reason: "Not checking for allocation status, tunnel is not actually disabled but could be pending.",
+	};
+}
+
+const debugCRTAction = Debug("playit:actions:createRegionTunnel");
+
+export async function createRegionTunnel(
+	agentId: string,
+	options: CreateRegionTunnelOptions,
+	waitForAllocation: boolean = true,
+	waitForAllocatedStatus: boolean = false
+): Promise<AllocationResult> {
+	const tunnelType = options.tunnelType;
+	const isPortType = tunnelType === "both" || tunnelType === "tcp" || tunnelType === "udp";
+
+	const body: AddSharedSchemaBody = isPortType
+		? {
+			user: options.user,
+			__csrf_token: options.csrfToken,
+			enabled: "on",
+			region: options.region as AddSharedSchemaBody["region"],
+			tunnel_type: tunnelType,
+			"tunnel-desc": options.tunnelCreationReason,
+			local_port: options.localPort,
+			port_count: options.portCount,
+		}
+		: {
+			user: options.user,
+			__csrf_token: options.csrfToken,
+			region: options.region as AddSharedSchemaBody["region"],
+			tunnel_type: tunnelType,
+			enabled: "on",
+		};
+
+	debugCRTAction("Creating tunnel with body: %O", body);
+
+	// Map options to API format
+	const { data, error } = await $fetch("@post/account/agents/:agentId/tunnels/add", {
+		params: { agentId },
+		body
+	});
+
+	if (error) {
+		throw new Error(`Failed to create tunnel: ${error.message}`);
+	}
+
+	if (waitForAllocation) {
+		if (waitForAllocatedStatus) {
+			debugCRTAction("Waiting for allocation to be allocated");
+			const allocData = data as { allocation: string; status: number };
+			for (let elapsed = 0; elapsed < 5 * 60 * 1000; elapsed += 2000) {
+				const result = await checkAllocationStatus(allocData, options.region);
+				if (result.status !== "pending") {
+					debugCRTAction("Allocation is not pending, returning result");
+					return result;
+				}
+				debugCRTAction("Allocation is pending, waiting +2 seconds before checking again");
+				await new Promise(r => setTimeout(r, 2000));
+			}
+			throw new Error("Allocation did not complete within 5 minutes");
+		}
+
+		return await checkAllocationStatus(data as { allocation: string; status: number }, options.region);
+	}
 
 	// TODO: Return actual allocation data from API response
 	// For now, return placeholder data
 	return {
-		ipHostname: options.dedicated_ip,
+		ipHostname: options.region,
 		status: "disabled",
 		reason: "Not checking for allocation status",
 	};
 }
-
-
-
-export async function createRegionTunnel() { }

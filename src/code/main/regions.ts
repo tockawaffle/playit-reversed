@@ -1,4 +1,8 @@
-export const regions: Record<string, string> = {
+export type RegionName = "GeoDNS (premium)" | "Global Anycast (free)" | "North America (premium)" | "Europe (premium)" | "Asia (premium)" | "India (premium)" | "South America (premium)" | "Seattle, Washington (USA premium)" | "Los Angeles, California (USA premium)" | "Denver, Colorado (USA premium)" | "Dallas, Texas (USA premium)" | "New York, New York (USA premium)" | "United Kingdom (EU premium)" | "Frankfurt, Germany (EU premium)" | "Bucharest, Romania (EU premium)" | "Tokyo, Japan (Asia premium)" | "Sydney, Australia (Asia premium)" | "Santiago, Chile (SA premium)";
+
+export type RegionValue = "smart-global" | "global" | "north-america" | "europe" | "asia" | "india" | "south-america" | "seattle-washington" | "los-angeles-california" | "denver-colorado" | "dallas-texas" | "new-york" | "united-kingdom" | "germany" | "romania" | "japan" | "australia" | "chile";
+
+export const regions: Record<RegionValue, RegionName> = {
 	"smart-global": "GeoDNS (premium)",
 	global: "Global Anycast (free)",
 	"north-america": "North America (premium)",

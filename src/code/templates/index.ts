@@ -96,7 +96,8 @@ export function getTypesTemplate(): string {
 	TunnelAllocData as ApiTunnelAllocData,
 	TunnelOriginData as ApiTunnelOriginData,
 	TunnelRatelimit as ApiTunnelRatelimit,
-	regionKeys
+	RegionValue,
+	AccountData
 } from "playit-reversed";
 
 export type { AllocationResult } from "playit-reversed";
@@ -118,6 +119,7 @@ export function getActionsImport(): string {
 	disableTunnel,
 	deleteAgent,
 	renameAgent,
+	createRegionTunnel,
 	createStaticIpTunnel,
 } from "playit-reversed";`;
 }
@@ -145,8 +147,6 @@ export function getHeaderImports(): string {
 	return `import { spawn } from "child_process";
 import type {
 	AllocationData,
-	AllocationResult,
-	PlayitResponse,
 	AgentId,
 	AgentName,
 	AgentKey,
@@ -154,11 +154,11 @@ import type {
 	TunnelName,
 	TunnelKey,
 	AllocationKey,
-	CreateStaticIpTunnelOptions,
-	UpdateTunnelOptions,
 	TunnelRef,
 	TunnelRefById,
 	TunnelData,
 	AgentRefById,
+	AgentRef,
+	AgentData
 } from "./types";`;
 }

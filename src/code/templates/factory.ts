@@ -11,11 +11,12 @@ import type {
 	AgentData,
 	AgentRef,
 	AgentRefById,
+	CreateRegionTunnelOptions,
 	CreateStaticIpTunnelOptions,
 	TunnelData,
 	TunnelRef,
 	TunnelRefById,
-	UpdateTunnelOptions,
+	UpdateTunnelOptions
 } from "./types";
 
 // Placeholder types - these are replaced with actual union types during generation
@@ -30,6 +31,7 @@ declare function disableTunnel(tunnelId: TunnelId, csrfToken: string): Promise<v
 declare function deleteAgent(agentId: AgentId, csrfToken: string): Promise<void>;
 declare function renameAgent(agentId: AgentId, newName: string, csrfToken: string): Promise<void>;
 declare function createStaticIpTunnel(agentId: AgentId, options: CreateStaticIpTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
+declare function createRegionTunnel(agentId: AgentId, options: CreateRegionTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
 
 // ============ Factory Functions ============
 
@@ -59,6 +61,7 @@ function createAgentRef(data: Omit<AgentData, "tunnels">, tunnelRefs: TunnelRef[
 		...data,
 		tunnels: tunnelRefs,
 		createStaticIpTunnel: (options, waitForAllocation, waitForAllocatedStatus) => createStaticIpTunnel(data.id, options, waitForAllocation, waitForAllocatedStatus),
+		createRegionTunnel: (options, waitForAllocation, waitForAllocatedStatus) => createRegionTunnel(data.id, options, waitForAllocation, waitForAllocatedStatus),
 		delete: () => deleteAgent(data.id, csrfToken),
 		rename: (newName) => renameAgent(data.id, newName, csrfToken),
 	};
@@ -69,6 +72,7 @@ function createAgentRefById(id: AgentId, csrfToken: string): AgentRefById {
 	return {
 		id,
 		createStaticIpTunnel: (options, waitForAllocation, waitForAllocatedStatus) => createStaticIpTunnel(id, options, waitForAllocation, waitForAllocatedStatus),
+		createRegionTunnel: (options, waitForAllocation, waitForAllocatedStatus) => createRegionTunnel(id, options, waitForAllocation, waitForAllocatedStatus),
 		delete: () => deleteAgent(id, csrfToken),
 		rename: (newName) => renameAgent(id, newName, csrfToken),
 	};

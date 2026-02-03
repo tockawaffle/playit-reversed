@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Dates are using the NORMAL format of DD-MM-YYYY.
 
+## [0.1.0-beta.6.1.0] - 03-02-2026
+
+### Added
+- **Region tunnel creation**: `createRegionTunnel` function for creating tunnels in specific regions (e.g., `north-america`, `europe`, `asia`). Supports both port-based tunnel types (`both`, `tcp`, `udp`) and application-specific tunnel types (e.g., `terraria`, `minecraft`).
+- **`CreateRegionTunnelOptions` type**: Type-safe options for region tunnel creation with discriminated union for port-based vs application-specific tunnels.
+- **Region types**: `RegionValue` and `RegionName` types exported from `./code/main/regions` for type-safe region selection.
+- **AccountData export**: `AccountData` type now exported from main package for use in tunnel creation options.
+- **Debug logging**: Added debug logging to `tunnels-add` middleware for better troubleshooting.
+
+### Changed
+- **Agent data generation**: Improved agent instance generation to include complete agent structure matching the schema (including `createdAt`, `agentVersion`, `selfManaged`, `status.data`, `routing`, `routingDisabledIp6`, `sortNum`).
+- **Schema validation**: Updated `add-shared` schema to make `local_port` optional (only required for port-based tunnel types) and improved premium region validation error messages.
+- **Middleware**: Fixed tunnel add middleware to only include `local_port` in body for port-based tunnel types.
+- **Exports**: Changed from named exports to `export *` for actions and schemas in `src/index.ts` for better re-export support.
+
+### Removed
+- **Legacy schema file**: Removed `src/schemas.ts` (no longer needed as schemas are defined in middleware).
+
 ## [0.1.0-beta.6.0.0] - 02-02-2026
 
 ### Added

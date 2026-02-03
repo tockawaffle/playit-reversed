@@ -10,11 +10,10 @@ export type * from "./code/main/bfetch/schemas/settings-allocations";
 export { CodegenRequiredError, isCodegenComplete, requireCodegen } from "./guard";
 
 // Action implementations - used by generated code
-export {
-	createStaticIpTunnel, deleteAgent, deleteTunnel, disableTunnel, enableTunnel, renameAgent, updateTunnel
-} from "./code/actions";
+export * from "./code/actions";
 
 // Re-export action result type
-export type { AllocationResult } from "./code/actions";
-export { regionKeys } from "./code/main/regions";
+export * from "./code/actions";
+export * from "./code/main/bfetch/schemas/settings-allocations";
+export * from "./code/main/regions";
 

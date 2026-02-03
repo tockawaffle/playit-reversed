@@ -11,6 +11,7 @@
 // Import actual types from schema for validation
 import type { AllocationResult } from "../actions";
 import type {
+	AccountData,
 	Agent as ApiAgent,
 	IpAllocation as ApiIpAllocation,
 	Tunnel as ApiTunnel,
@@ -18,8 +19,9 @@ import type {
 	TunnelOriginData as ApiTunnelOriginData,
 	TunnelRatelimit as ApiTunnelRatelimit,
 } from "../main/bfetch/schemas/settings-allocations";
+import { type RegionValue } from "../main/regions";
 
-import { regionKeys } from "../main/regions";
+export type { AccountData };
 
 // ============ Codegen Placeholder Types ============
 // These are replaced with actual union types during generation
@@ -76,9 +78,9 @@ export type CreateStaticIpTunnelOptions = {
 	)
 
 export type CreateRegionTunnelOptions = {
-	region: typeof regionKeys;
-	localPort: number;
+	user: AccountData["account"];
 	csrfToken: string;
+	region: RegionValue;
 } & (
 		{
 			tunnelType: Extract<ApiTunnel["tunnel_type"], "both" | "tcp" | "udp">;
@@ -86,7 +88,7 @@ export type CreateRegionTunnelOptions = {
 			localPort: number;
 			portCount: number;
 		} | {
-			tunnelType: Omit<ApiTunnel["tunnel_type"], "both" | "tcp" | "udp">;
+			tunnelType: Exclude<ApiTunnel["tunnel_type"], "both" | "tcp" | "udp" | null>;
 		}
 	)
 
@@ -236,6 +238,12 @@ export interface AgentRef extends AgentData {
 	 * @returns The allocation data for the tunnel if waitForAllocation is true and nothing otherwise.
 	 */
 	createStaticIpTunnel(options: CreateStaticIpTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
+	/** Create a new region tunnel for this agent
+	 * @param options - The options for the tunnel creation.
+	 * @param waitForAllocation - If true, the function will wait for the allocation to be created before returning.
+	 * @returns The allocation data for the tunnel if waitForAllocation is true and nothing otherwise.
+	 */
+	createRegionTunnel(options: CreateRegionTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
 	/** Delete this agent */
 	delete(): Promise<void>;
 	/** Rename this agent */
@@ -254,6 +262,12 @@ export interface AgentRefById {
 	 * @returns The allocation data for the tunnel if waitForAllocation is true and nothing otherwise.
 	 */
 	createStaticIpTunnel(options: CreateStaticIpTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
+	/** Create a new region tunnel for this agent
+	 * @param options - The options for the tunnel creation.
+	 * @param waitForAllocation - If true, the function will wait for the allocation to be created before returning.
+	 * @returns The allocation data for the tunnel if waitForAllocation is true and nothing otherwise.
+	 */
+	createRegionTunnel(options: CreateRegionTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
 	delete(): Promise<void>;
 	rename(newName: string): Promise<void>;
 }

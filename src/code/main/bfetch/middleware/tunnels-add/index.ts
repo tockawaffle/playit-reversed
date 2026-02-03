@@ -1,12 +1,17 @@
 import type { RequestContext } from "@better-fetch/fetch";
 import addTunnelSchema from "../../schemas/add-shared";
 
+import debug from "debug";
+
+const debugTunnelsAddMiddleware = debug("playit:middleware:tunnels-add");
+
 export default async function tunnelsAddMiddlewareReq(context: RequestContext) {
 	// Parse body (may be string from schema or object from caller) and validate
 	const rawBody = context.body;
 	const parsedBody = typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody;
 	const parseResult = addTunnelSchema.safeParse(parsedBody);
 	if (!parseResult.success) {
+		debugTunnelsAddMiddleware("Tunnel add body validation failed: %O", parseResult.error.issues);
 		throw new Error(
 			"Tunnel add body validation failed: " + parseResult.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ")
 		);
@@ -47,11 +52,13 @@ export default async function tunnelsAddMiddlewareReq(context: RequestContext) {
 	if (isPortType) {
 		bodyEntries.push(["tunnel-desc", body["tunnel-desc"]!]);
 		bodyEntries.push(["port_count", String(body.port_count!)]);
+		bodyEntries.push(["local_port", String(body.local_port!)]);
 	}
-	bodyEntries.push(["local_port", String(body.local_port!)]);
 	bodyEntries.push(["enabled", body.enabled]);
 
 	const bodyString = new URLSearchParams(bodyEntries).toString();
+
+	debugTunnelsAddMiddleware("Tunnel add body: %O", bodyString);
 
 	context.body = bodyString;
 	return context;

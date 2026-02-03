@@ -66,6 +66,7 @@ This will:
 ```typescript
 import { playit } from "./generated/playit";
 import { user } from "./generated/user";
+import { AccountData } from "playit-reversed";
 
 // Access agents (fully typed — keys are derived from agent names, e.g. my_server)
 const agent = playit.agents.my_server;
@@ -97,6 +98,33 @@ await agent.createStaticIpTunnel(
 	true,  // waitForAllocation
 	false  // waitForAllocatedStatus
 );
+
+// Create a region tunnel (port-based: TCP/UDP/both)
+await agent.createRegionTunnel(
+	{
+		user: user as AccountData["account"],
+		csrfToken: user.csrfToken,
+		region: "north-america",  // or "europe", "asia", "global", etc.
+		tunnelType: "both",       // "tcp", "udp", or "both"
+		tunnelCreationReason: "Game Server",
+		localPort: 7777,
+		portCount: 2,
+	},
+	true,  // waitForAllocation
+	false  // waitForAllocatedStatus
+);
+
+// Create a region tunnel (application-specific: e.g., Terraria, Minecraft)
+await agent.createRegionTunnel(
+	{
+		user: user as AccountData["account"],
+		csrfToken: user.csrfToken,
+		region: "europe",
+		tunnelType: "terraria",  // or "minecraft", etc.
+	},
+	true,  // waitForAllocation
+	false  // waitForAllocatedStatus
+);
 ```
 
 ### Operating by ID (tunnels and agents not in codegen)
@@ -113,9 +141,10 @@ await tunnelRef.disable(); // WIP: may throw "Not implemented"
 
 // Agent by ID
 const agentRef = playit.agent("some-agent-uuid");
-await agentRef.rename("new-name");       // WIP: may throw "Not implemented"
+await agentRef.rename("new-name");                    // WIP: may throw "Not implemented"
 await agentRef.createStaticIpTunnel(options, true, false);
-await agentRef.delete();                // WIP: may throw "Not implemented"
+await agentRef.createRegionTunnel(regionOptions, true, false);
+await agentRef.delete();                             // WIP: may throw "Not implemented"
 ```
 
 > **Warning — Validation before actions**  
@@ -157,11 +186,13 @@ The generated `playit` object (from `./generated/playit`) exposes:
 | `playit.tunnelNames`  | Array of all tunnel names.                                                                                   |
 | `playit.regenerate()` | Re-runs setup (fetch + codegen). Does not work in serverless.                                                |
 
-**AgentRef** (from `./generated/types`): `id`, `name`, `clientIp?`, `tunnelIp?`, `version`, `os`, `status`, `tunnels` (array of `TunnelRef`); methods: `createStaticIpTunnel(options, waitForAllocation, waitForAllocatedStatus)`, `delete()`, `rename(newName)`.
+**AgentRef** (from `./generated/types`): `id`, `name`, `clientIp?`, `tunnelIp?`, `version`, `os`, `status`, `tunnels` (array of `TunnelRef`); methods: `createStaticIpTunnel(options, waitForAllocation, waitForAllocatedStatus)`, `createRegionTunnel(options, waitForAllocation, waitForAllocatedStatus)`, `delete()`, `rename(newName)`.
 
 **TunnelRef**: tunnel data (`id`, `name`, `tunnelType`, `portType`, `portCount`, `alloc`, `origin`, `domain`, etc.); methods: `delete()`, `update({ name?, localPort?, localIp? })`, `enable()`, `disable()`.
 
 **CreateStaticIpTunnelOptions** (for TCP/UDP/both): `dedicated_ip` (allocation hostname), `__csrf_token` (from `user.csrfToken` in `./generated/user`), `public_port`, `enabled: "on" | "off"`, `tunnel_type: "tcp" | "udp" | "both"`, `"tunnel-desc": string`, `port_count: number`. For other tunnel types (e.g. Minecraft), see `CreateStaticIpTunnelOptions` in `./generated/types`.
+
+**CreateRegionTunnelOptions**: Discriminated union type for creating region-based tunnels. Common fields: `user` (from `AccountData["account"]`), `csrfToken` (from `user.csrfToken`), `region` (e.g., `"north-america"`, `"europe"`, `"asia"`, `"global"`). For port-based tunnels (`tunnelType: "tcp" | "udp" | "both"`): also requires `tunnelCreationReason`, `localPort`, `portCount`. For application-specific tunnels (e.g., `tunnelType: "terraria"`, `"minecraft"`): no additional fields required. See `CreateRegionTunnelOptions` and `RegionValue` in `./generated/types` and exported from `playit-reversed`.
 
 ## How It Works
 
