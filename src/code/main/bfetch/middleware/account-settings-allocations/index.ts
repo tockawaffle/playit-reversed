@@ -3,7 +3,8 @@ import debug from "debug";
 import { allocationOutputSchema } from "../../schemas/settings-allocations";
 
 const debugAccountSettingsAllocations = debug("playit:bfetch:mtim:account-settings-allocations");
-export default async function asaMitmResponse(modifiedContext: ResponseContext) {
+
+export default async function asaMiddlewareResponse(modifiedContext: ResponseContext) {
 	const redirectHeader = modifiedContext.response.headers.get("x-remix-redirect")
 	if (redirectHeader && redirectHeader.includes("/login?")) { throw new Error("Something went wrong, either your token is invalid, expired the API is messing us up."); }
 

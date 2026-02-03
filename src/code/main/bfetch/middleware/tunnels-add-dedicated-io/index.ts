@@ -2,7 +2,7 @@ import type { RequestContext, ResponseContext } from "@better-fetch/fetch";
 import type z from "zod";
 import type addDedicatedIpSchema from "../../schemas/add-dedicated-ip";
 
-export async function tunnelsAddDedicatedIpMitmReq(modifiedContext: RequestContext) {
+export async function tunnelsAddDedicatedIpMiddlewareReq(modifiedContext: RequestContext) {
 	// Use query from context (better-fetch passes it here)
 	const query = modifiedContext.query || {};
 	const body = modifiedContext.body as z.infer<typeof addDedicatedIpSchema["body"]>;
@@ -58,7 +58,7 @@ export async function tunnelsAddDedicatedIpMitmReq(modifiedContext: RequestConte
 	return modifiedContext;
 }
 
-export async function tunnelsAddDedicatedIpMitmRes(modifiedContext: ResponseContext) {
+export async function tunnelsAddDedicatedIpMiddlewareRes(modifiedContext: ResponseContext) {
 	// Check the headers for the headers: x-remix-redirect and x-remix-status
 	const redirectHeader = modifiedContext.response.headers.get("x-remix-redirect");
 	const statusHeader = modifiedContext.response.headers.get("x-remix-status");
