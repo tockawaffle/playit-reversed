@@ -47,8 +47,7 @@
 	"devDependencies": {
 		"@types/bun": "latest",
 		"@types/debug": "^4.1.12",
-		"@types/node": "^25.0.9",
-		"playit-reversed": "./playit-reversed-0.1.0-beta.5.0.2.tgz"
+		"@types/node": "^25.0.9"
 	},
 	"peerDependencies": {
 		"typescript": "^5"
