@@ -9,7 +9,7 @@ import Debug from "debug";
 import { createPlayItFetch } from "./main/bfetch";
 import type { AddDedicatedIpSchemaBody } from "./main/bfetch/schemas/add-dedicated-ip";
 import type { AddSharedSchemaBody } from "./main/bfetch/schemas/add-shared";
-import { allocationOutputSchema, type TunnelAllocData } from "./main/bfetch/schemas/settings-allocations";
+import { allocationOutputSchema, type IpAllocation, type Tunnel, type TunnelAllocData } from "./main/bfetch/schemas/settings-allocations";
 import type { CreateRegionTunnelOptions, CreateStaticIpTunnelOptions, UpdateTunnelOptions } from "./templates/types";
 
 const debugCSITAction = Debug("playit:actions:createStaticIpTunnel");
@@ -95,7 +95,7 @@ export type AllocationResult = {
 	readonly ipHostname: string;
 } & (
 		| { readonly status: "pending" }
-		| { readonly status: "allocated"; readonly data: TunnelAllocData }
+		| { readonly status: "allocated"; readonly data: TunnelAllocData & { mainId: string } }
 		| { readonly status: "disabled"; readonly reason: NonNullable<NonNullable<TunnelAllocData>["reason"]> }
 	);
 
@@ -133,7 +133,10 @@ async function checkAllocationStatus(data: { allocation: string, status: number 
 	return {
 		ipHostname: tunnel.alloc.data!.ip_hostname || "",
 		status: "allocated",
-		data: tunnel.alloc.data!,
+		data: {
+			...tunnel.alloc.data!,
+			mainId: tunnel.id
+		}
 	}
 }
 
@@ -282,4 +285,42 @@ export async function createRegionTunnel(
 		status: "disabled",
 		reason: "Not checking for allocation status",
 	};
+}
+
+/**
+ * Fetches all tunnels for the account.
+ * Good if you want to get all tunnels for the account and then filter them by your own criteria.
+ */
+export async function GetTunnels(): Promise<Tunnel[]> {
+	const { data, error } = await $fetch("@get/account/settings/allocations");
+	if (error) {
+		throw new Error(`Failed to fetch tunnels: ${error.message}`);
+	}
+	return data.state.loaderData["routes/account"].tunnels.tunnels;
+}
+
+/**
+ * Fetches a tunnel by its MAIN ID.
+ * @param tunnelId - The MAIN ID of the tunnel. Do not use the "alloc" id.
+ * @returns 
+ */
+export async function GetTunnel(tunnelId: string): Promise<Tunnel> {
+	const tunnels = await GetTunnels();
+	const tunnel = tunnels.find(tunnel => tunnel.id === tunnelId);
+	if (!tunnel) {
+		throw new Error(`Tunnel not found: ${tunnelId}`);
+	}
+	return tunnel;
+}
+
+/**
+ * Fetches all available allocations for the account.
+ * @returns All available allocations for the account.
+ */
+export async function GetAvailableAllocations(): Promise<IpAllocation[]> {
+	const { data, error } = await $fetch("@get/account/settings/allocations");
+	if (error) {
+		throw new Error(`Failed to fetch allocations: ${error.message}`);
+	}
+	return data.state.loaderData["routes/account/settings/allocations"].ips.filter((ip): ip is NonNullable<typeof ip> => ip !== undefined);
 }

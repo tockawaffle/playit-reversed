@@ -1,0 +1,52 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Validate PlayIt API Key
+        env:
+          PLAYIT_API_KEY: ${{ secrets.PLAYIT_API_KEY }}
+        run: |
+          if [ -z "$PLAYIT_API_KEY" ]; then
+            echo "::error::PLAYIT_API_KEY secret is not set!"
+            echo "Please add PLAYIT_API_KEY to repository secrets."
+            echo "Go to Settings -> Secrets and variables -> Actions -> New repository secret"
+            exit 1
+          fi
+
+      - name: Setup PlayIt environment
+        env:
+          PLAYIT_API_KEY: ${{ secrets.PLAYIT_API_KEY }}
+        run: |
+          echo "PLAYIT_API_KEY=$PLAYIT_API_KEY" > .env
+          bun run playit:setup
+
+      - name: Run tests
+        run: bun test
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "### Test Results :test_tube:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tests completed successfully! :white_check_mark:" >> $GITHUB_STEP_SUMMARY

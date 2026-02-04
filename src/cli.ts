@@ -231,75 +231,32 @@ async function generateTypes(data?: StoredData): Promise<void> {
 
 	// Generate tunnel instances using the new snake_case schema
 	const tunnelInstances = tunnels.map((t, i) => {
-		// Generate alloc object based on status (discriminated union)
-		// The new schema has alloc.data with optional fields based on status
-		let allocObject: string;
-		if (t.alloc.status === "allocated" && t.alloc.data) {
-			const allocData = t.alloc.data;
-			allocObject = `{
-            status: "allocated" as const,
-            id: "${allocData.id || ""}",
-            ipHostname: "${allocData.ip_hostname || ""}",
-            staticIp4: "${allocData.static_ip4 || ""}",
-            staticIp6: "${allocData.static_ip6 || ""}",
-            assignedDomain: "${allocData.assigned_domain || ""}",
-            assignedSrv: ${allocData.assigned_srv ? `"${allocData.assigned_srv}"` : "null"},
-            tunnelIp: "${allocData.tunnel_ip || ""}",
-            portStart: ${allocData.port_start ?? 0},
-            portEnd: ${allocData.port_end ?? 0},
-            ipType: "${allocData.ip_type || ""}",
-            region: "${allocData.region || ""}",
-        }`;
-		} else if (t.alloc.status === "pending") {
-			allocObject = `{
-            status: "pending" as const,
-        }`;
-		} else if (t.alloc.status === "disabled" && t.alloc.data?.reason) {
-			allocObject = `{
-            status: "disabled" as const,
-            reason: "${t.alloc.data.reason}",
-        }`;
-		} else {
-			allocObject = `{
-            status: "unallocated" as const,
-        }`;
-		}
+		// Serialize the tunnel data directly, then add type assertions
+		const tunnelStr = JSON.stringify(t, null, 2)
+			.replace(/"([^"]+)":/g, "$1:") // Remove quotes from keys
+			.replace(/: "([^"]+)"/g, ': "$1"') // Keep quotes on string values
+			.replace(/: (null|true|false|\d+)/g, ": $1") // Keep null, booleans, and numbers unquoted
+			.replace(/"id": "([^"]+)"/g, 'id: "$1" as const') // Add 'as const' to id
+			.replace(/"name": "([^"]+)"/g, 'name: "$1" as const') // Add 'as const' to name
+			.replace(/"agent_id": "([^"]+)"/g, 'agent_id: "$1" as AgentId') // Add AgentId type
+			.replace(/"agent_name": "([^"]+)"/g, 'agent_name: "$1" as AgentName') // Add AgentName type
+			.replace(/"(status|state|port_type|hostname_verify_level|type)": "([^"]+)"/g, '$1: "$2" as const'); // Add 'as const' to enum-like fields
 
-		return `    ${tunnelKeys[i]}: {
-        id: "${t.id}" as const,
-        name: "${t.name}" as const,
-        tunnelType: ${t.tunnel_type ? `"${t.tunnel_type}"` : "null"},
-        portType: "${t.port_type}" as const,
-        portCount: ${t.port_count},
-        alloc: ${allocObject},
-        origin: {
-            agentId: "${t.origin.data.agent_id}" as AgentId,
-            agentName: "${t.origin.data.agent_name}" as AgentName,
-            localIp: "${t.origin.data.local_ip}",
-            localPort: ${t.origin.data.local_port ?? "null"},
-        },
-        domain: ${t.domain ? `"${t.domain}"` : "null"},
-        firewallId: ${t.firewall_id ? `"${t.firewall_id}"` : "null"},
-        ratelimit: ${t.ratelimit ? `{ bytesPerSecond: ${t.ratelimit.bytes_per_second}, packetsPerSecond: ${t.ratelimit.packets_per_second} }` : "null"},
-        active: ${t.active},
-        disabledReason: ${t.disabled_reason ? `"${t.disabled_reason}"` : "null"},
-        region: "${t.region}",
-        expireNotice: ${t.expire_notice ? `"${t.expire_notice}"` : "null"},
-        proxyProtocol: ${t.proxy_protocol ? `"${t.proxy_protocol}"` : "null"},
-        hostnameVerifyLevel: "${t.hostname_verify_level}" as const,
-        agentOverLimit: ${t.agent_over_limit},
-        createdAt: "${t.created_at}",
-    }`;
+		return `    ${tunnelKeys[i]}: ${tunnelStr}`;
 	}).join(",\n");
 
 	// Generate allocation instances using the new snake_case schema
-	const allocationInstances = allocations.map((a, i) => `    "${allocKeys[i]}": {
-        ipHostname: "${a.ip_hostname}" as const,
-        subId: ${a.sub_id ? `"${a.sub_id}"` : "null"},
-        region: "${a.region}" as const,
-        ipType: "${a.ip_type}" as const,
-        greTarget: ${a.gre_target ? `"${a.gre_target}"` : "null"},
-    }`).join(",\n");
+	const allocationInstances = allocations.map((a, i) => {
+		const allocStr = JSON.stringify(a, null, 2)
+			.replace(/"([^"]+)":/g, "$1:") // Remove quotes from keys
+			.replace(/: "([^"]+)"/g, ': "$1"') // Keep quotes on string values
+			.replace(/: (null|true|false|\d+)/g, ": $1") // Keep null, booleans, and numbers unquoted
+			.replace(/"ip_hostname": "([^"]+)"/g, 'ip_hostname: "$1" as const') // Add 'as const' to ip_hostname
+			.replace(/"region": "([^"]+)"/g, 'region: "$1" as const') // Add 'as const' to region
+			.replace(/"ip_type": "([^"]+)"/g, 'ip_type: "$1" as const'); // Add 'as const' to ip_type
+
+		return `    "${allocKeys[i]}": ${allocStr}`;
+	}).join(",\n");
 
 	const config: CodegenConfig = {
 		agentIds,

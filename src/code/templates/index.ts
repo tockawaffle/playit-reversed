@@ -121,6 +121,9 @@ export function getActionsImport(): string {
 	renameAgent,
 	createRegionTunnel,
 	createStaticIpTunnel,
+	GetTunnels,
+	GetTunnel,
+	GetAvailableAllocations,
 } from "playit-reversed";`;
 }
 
@@ -141,24 +144,18 @@ export function getRegenerateTemplate(): string {
 }
 
 /**
+ * Get the imports template content (for playit.ts generation)
+ */
+export function getImportsTemplate(): string {
+	const content = readTemplate("imports.ts");
+	return extractContent(content, {
+		removeImports: false
+	});
+}
+
+/**
  * Get the import statements for the generated file header
  */
 export function getHeaderImports(): string {
-	return `import { spawn } from "child_process";
-import type {
-	AllocationData,
-	AgentId,
-	AgentName,
-	AgentKey,
-	TunnelId,
-	TunnelName,
-	TunnelKey,
-	AllocationKey,
-	TunnelRef,
-	TunnelRefById,
-	TunnelData,
-	AgentRefById,
-	AgentRef,
-	AgentData
-} from "./types";`;
+	return getImportsTemplate();
 }

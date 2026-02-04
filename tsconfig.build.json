@@ -5,6 +5,7 @@
 		"declaration": true,
 		"emitDeclarationOnly": true,
 		"outDir": "dist",
+		"rootDir": "src",
 		"allowImportingTsExtensions": false
 	},
 	"include": [
@@ -13,6 +14,8 @@
 	"exclude": [
 		"src/examples/**/*",
 		"generated/**/*",
-		"examples/**/*"
+		"examples/**/*",
+		"tests/**/*",
+		"dist/**/*"
 	]
 }

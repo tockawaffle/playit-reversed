@@ -154,27 +154,27 @@ function generateAgentInstances(config: CodegenConfig): string {
 
 		const statusDataStr = hasStatusData
 			? `		data: {
-			dataCenterId: ${statusData.data_center_id},
-			dataCenterName: "${statusData.data_center_name}",
-			clientAddr: "${statusData.client_addr}",
-			tunnelAddr: "${statusData.tunnel_addr}",
-			activityLatestEpochMs: ${statusData.activity_latest_epoch_ms},
-			activityStartEpochMs: ${statusData.activity_start_epoch_ms}
+			data_center_id: ${statusData.data_center_id},
+			data_center_name: "${statusData.data_center_name}",
+			client_addr: "${statusData.client_addr}",
+			tunnel_addr: "${statusData.tunnel_addr}",
+			activity_latest_epoch_ms: ${statusData.activity_latest_epoch_ms},
+			activity_start_epoch_ms: ${statusData.activity_start_epoch_ms}
 		}`
 			: `		data: null`;
 
 		return `	${config.toIdentifier(a.name)}: {
 		id: "${a.id}" as const,
 		name: "${a.name}" as const,
-		createdAt: "${a.created_at}",
-		agentVersion: {
-			variantId: "${a.agent_version.variant_id}",
-			schemaId: "${a.agent_version.schema_id}",
+		created_at: "${a.created_at}",
+		agent_version: {
+			variant_id: "${a.agent_version.variant_id}",
+			schema_id: "${a.agent_version.schema_id}",
 			name: "${a.agent_version.name}",
 			version: "${a.agent_version.version}",
 			platform: "${a.agent_version.platform}"
 		},
-		selfManaged: ${a.self_managed},
+		self_managed: ${a.self_managed},
 		status: {
 			state: "${a.status.state}" as const,
 ${statusDataStr}
@@ -182,8 +182,8 @@ ${statusDataStr}
 		routing: {
 			type: "${a.routing.type}"
 		},
-		routingDisabledIp6: ${a.routing_disabled_ip6},
-		sortNum: ${a.sort_num}
+		routing_disabled_ip6: ${a.routing_disabled_ip6},
+		sort_num: ${a.sort_num}
 	}`;
 	}).join(",\n");
 
@@ -322,6 +322,15 @@ export const playit = {
 	
 	/** Regenerate types after changes */
 	regenerate,
+
+	/** Get all tunnels */
+	getTunnels: GetTunnels,
+
+	/** Get a tunnel by its MAIN ID */
+	getTunnel: GetTunnel,
+
+	/** Get all available allocations */
+	getAvailableAllocations: GetAvailableAllocations,
 };
 
 export default playit;

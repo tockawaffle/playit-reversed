@@ -6,14 +6,14 @@
  * playit.ts file.
  */
 
+import type { Agent as ApiAgent } from "playit-reversed";
 import type { AllocationResult } from "../actions";
 import type {
-	AgentData,
 	AgentRef,
 	AgentRefById,
+	ApiTunnel,
 	CreateRegionTunnelOptions,
 	CreateStaticIpTunnelOptions,
-	TunnelData,
 	TunnelRef,
 	TunnelRefById,
 	UpdateTunnelOptions
@@ -35,7 +35,7 @@ declare function createRegionTunnel(agentId: AgentId, options: CreateRegionTunne
 
 // ============ Factory Functions ============
 
-function createTunnelRef(data: TunnelData, csrfToken: string): TunnelRef {
+function createTunnelRef(data: ApiTunnel, csrfToken: string): TunnelRef {
 	return {
 		...data,
 		delete: () => deleteTunnel(data.id, csrfToken),
@@ -56,7 +56,7 @@ function createTunnelRefById(id: TunnelId, csrfToken: string): TunnelRefById {
 	};
 }
 
-function createAgentRef(data: Omit<AgentData, "tunnels">, tunnelRefs: TunnelRef[], csrfToken: string): AgentRef {
+function createAgentRef(data: Omit<ApiAgent, "tunnels">, tunnelRefs: TunnelRef[], csrfToken: string): AgentRef {
 	return {
 		...data,
 		tunnels: tunnelRefs,

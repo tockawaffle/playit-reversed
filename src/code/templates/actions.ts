@@ -9,9 +9,7 @@
  */
 
 // Validate that these exports exist in the main package
-export {
-	createStaticIpTunnel, deleteAgent, deleteTunnel, disableTunnel, enableTunnel, renameAgent, updateTunnel
-} from "../actions";
+export * from "../actions";
 
 // Re-export types for template validation
 export type { CreateStaticIpTunnelOptions, UpdateTunnelOptions } from "./types";

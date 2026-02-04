@@ -1,5 +1,9 @@
 # PlayIt Reversed
 
+[![Build](https://github.com/tockawaffle/playit-reversed/actions/workflows/build.yml/badge.svg)](https://github.com/tockawaffle/playit-reversed/actions/workflows/build.yml)
+[![Tests](https://github.com/tockawaffle/playit-reversed/actions/workflows/test.yml/badge.svg)](https://github.com/tockawaffle/playit-reversed/actions/workflows/test.yml)
+[![Publish](https://github.com/tockawaffle/playit-reversed/actions/workflows/publish.yml/badge.svg)](https://github.com/tockawaffle/playit-reversed/actions/workflows/publish.yml)
+
 A **type-safe API client** for [playit.gg](https://playit.gg) with code generation.
 
 > **Disclaimer**: 

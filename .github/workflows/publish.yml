@@ -1,0 +1,138 @@
+name: Publish to NPM
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      npm_tag:
+        description: "NPM tag (latest, beta, alpha, etc.)"
+        required: false
+        default: "beta"
+        type: choice
+        options:
+          - latest
+          - beta
+          - alpha
+          - next
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build project
+        run: bun run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Validate PlayIt API Key
+        env:
+          PLAYIT_API_KEY: ${{ secrets.PLAYIT_API_KEY }}
+        run: |
+          if [ -z "$PLAYIT_API_KEY" ]; then
+            echo "::error::PLAYIT_API_KEY secret is not set!"
+            echo "Please add PLAYIT_API_KEY to repository secrets."
+            echo "Go to Settings -> Secrets and variables -> Actions -> New repository secret"
+            exit 1
+          fi
+
+      - name: Setup PlayIt environment
+        env:
+          PLAYIT_API_KEY: ${{ secrets.PLAYIT_API_KEY }}
+        run: |
+          echo "PLAYIT_API_KEY=$PLAYIT_API_KEY" > .env
+          bun run playit:setup
+
+      - name: Run tests
+        run: bun test
+
+  publish:
+    needs: [build, test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Determine NPM tag
+        id: npm_tag
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.npm_tag }}" >> $GITHUB_OUTPUT
+          else
+            # For releases, check if it's a prerelease
+            if [[ "${{ github.ref_name }}" == *"beta"* ]]; then
+              echo "tag=beta" >> $GITHUB_OUTPUT
+            elif [[ "${{ github.ref_name }}" == *"alpha"* ]]; then
+              echo "tag=alpha" >> $GITHUB_OUTPUT
+            else
+              echo "tag=latest" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Publish to NPM
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm publish --tag ${{ steps.npm_tag.outputs.tag }} --access public
+
+      - name: Publish Summary
+        run: |
+          echo "### Publish Results :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Published to NPM with tag: \`${{ steps.npm_tag.outputs.tag }}\` :white_check_mark:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Package: \`playit-reversed\`" >> $GITHUB_STEP_SUMMARY

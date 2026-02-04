@@ -15,37 +15,35 @@ import type {
 	Agent as ApiAgent,
 	IpAllocation as ApiIpAllocation,
 	Tunnel as ApiTunnel,
-	TunnelAllocData as ApiTunnelAllocData,
-	TunnelOriginData as ApiTunnelOriginData,
-	TunnelRatelimit as ApiTunnelRatelimit,
+	TunnelAllocData as ApiTunnelAllocData
 } from "../main/bfetch/schemas/settings-allocations";
 import { type RegionValue } from "../main/regions";
 
-export type { AccountData };
+export type { AccountData, ApiTunnel };
 
 // ============ Codegen Placeholder Types ============
 // These are replaced with actual union types during generation
 
 /** Placeholder - replaced with actual agent IDs during generation */
-type AgentId = string;
+export type AgentId = string;
 
 /** Placeholder - replaced with actual agent names during generation */
-type AgentName = string;
+export type AgentName = string;
 
 /** Placeholder - replaced with actual agent keys during generation */
-type AgentKey = string;
+export type AgentKey = string;
 
 /** Placeholder - replaced with actual tunnel IDs during generation */
-type TunnelId = string;
+export type TunnelId = string;
 
 /** Placeholder - replaced with actual tunnel names during genefration */
-type TunnelName = string;
+export type TunnelName = string;
 
 /** Placeholder - replaced with actual tunnel keys during generation */
-type TunnelKey = string;
+export type TunnelKey = string;
 
 /** Placeholder - replaced with actual allocation keys during generation */
-type AllocationKey = string;
+export type AllocationKey = string;
 
 // ============ API Response Types ============
 
@@ -62,7 +60,7 @@ export interface PlayitResponse<T> {
 
 /** Tunnel creation options — discriminated by tunnel_type */
 export type CreateStaticIpTunnelOptions = {
-	dedicated_ip: AllocationKey;
+	dedicated_ip: string;
 	__csrf_token: string;
 	public_port: number;
 	readonly enabled: "on" | "off";
@@ -78,13 +76,13 @@ export type CreateStaticIpTunnelOptions = {
 	)
 
 export type CreateRegionTunnelOptions = {
-	user: AccountData["account"];
+	user: AccountData["account"]
 	csrfToken: string;
 	region: RegionValue;
 } & (
 		{
 			tunnelType: Extract<ApiTunnel["tunnel_type"], "both" | "tcp" | "udp">;
-			tunnelCreationReason: string
+			tunnelCreationReason: string;
 			localPort: number;
 			portCount: number;
 		} | {
@@ -105,17 +103,7 @@ export interface UpdateTunnelOptions {
  */
 export interface AllocatedTunnelAlloc {
 	readonly status: "allocated";
-	readonly id: NonNullable<NonNullable<ApiTunnelAllocData>["id"]>;
-	readonly ipHostname: NonNullable<NonNullable<ApiTunnelAllocData>["ip_hostname"]>;
-	readonly staticIp4: NonNullable<NonNullable<ApiTunnelAllocData>["static_ip4"]>;
-	readonly staticIp6: NonNullable<NonNullable<ApiTunnelAllocData>["static_ip6"]>;
-	readonly assignedDomain: NonNullable<NonNullable<ApiTunnelAllocData>["assigned_domain"]>;
-	readonly assignedSrv: NonNullable<ApiTunnelAllocData>["assigned_srv"];
-	readonly tunnelIp: NonNullable<NonNullable<ApiTunnelAllocData>["tunnel_ip"]>;
-	readonly portStart: NonNullable<NonNullable<ApiTunnelAllocData>["port_start"]>;
-	readonly portEnd: NonNullable<NonNullable<ApiTunnelAllocData>["port_end"]>;
-	readonly ipType: NonNullable<NonNullable<ApiTunnelAllocData>["ip_type"]>;
-	readonly region: NonNullable<NonNullable<ApiTunnelAllocData>["region"]>;
+	readonly data: NonNullable<NonNullable<ApiTunnelAllocData>>;
 }
 
 /** Tunnel allocation when status is "pending" */
@@ -132,45 +120,8 @@ export interface DisabledTunnelAlloc {
 /** Tunnel allocation - discriminated union based on status (matches API schema) */
 export type TunnelAlloc = AllocatedTunnelAlloc | PendingTunnelAlloc | DisabledTunnelAlloc;
 
-/**
- * Tunnel data structure with camelCase properties
- * Transformed from ApiTunnel for user-friendly access
- */
-export interface TunnelData {
-	readonly id: TunnelId;
-	readonly name: TunnelName;
-	readonly tunnelType: ApiTunnel["tunnel_type"];
-	readonly portType: ApiTunnel["port_type"];
-	readonly portCount: ApiTunnel["port_count"];
-	readonly alloc: TunnelAlloc;
-	readonly origin: {
-		readonly agentId: ApiTunnelOriginData["agent_id"];
-		readonly agentName: ApiTunnelOriginData["agent_name"];
-		readonly localIp: ApiTunnelOriginData["local_ip"];
-		readonly localPort: ApiTunnelOriginData["local_port"];
-	};
-	readonly domain: ApiTunnel["domain"];
-	readonly firewallId: ApiTunnel["firewall_id"];
-	readonly ratelimit: ApiTunnelRatelimit extends infer R
-	? R extends null
-	? null
-	: {
-		readonly bytesPerSecond: NonNullable<ApiTunnelRatelimit>["bytes_per_second"];
-		readonly packetsPerSecond: NonNullable<ApiTunnelRatelimit>["packets_per_second"];
-	}
-	: null;
-	readonly active: ApiTunnel["active"];
-	readonly disabledReason: ApiTunnel["disabled_reason"];
-	readonly region: ApiTunnel["region"];
-	readonly expireNotice: ApiTunnel["expire_notice"];
-	readonly proxyProtocol: ApiTunnel["proxy_protocol"];
-	readonly hostnameVerifyLevel: ApiTunnel["hostname_verify_level"];
-	readonly agentOverLimit: ApiTunnel["agent_over_limit"];
-	readonly createdAt: ApiTunnel["created_at"];
-}
-
 /** Tunnel with actions */
-export interface TunnelRef extends TunnelData {
+export interface TunnelRef extends ApiTunnel {
 	/** Delete this tunnel */
 	delete(): Promise<void>;
 	/** Update this tunnel */
@@ -186,7 +137,7 @@ export interface TunnelRef extends TunnelData {
  * Use when the tunnel is not in codegen (e.g. newly created or from another source).
  */
 export interface TunnelRefById {
-	readonly id: TunnelId;
+	readonly id: ApiTunnel["id"];
 	delete(): Promise<void>;
 	update(options: UpdateTunnelOptions): Promise<void>;
 	enable(): Promise<void>;
@@ -195,43 +146,8 @@ export interface TunnelRefById {
 
 // ============ Agent Types ============
 
-/**
- * Agent data structure with camelCase properties
- * Transformed from ApiAgent for user-friendly access
- */
-export interface AgentData {
-	readonly id: AgentId;
-	readonly name: AgentName;
-	readonly createdAt: ApiAgent["created_at"];
-	readonly agentVersion: {
-		readonly variantId: ApiAgent["agent_version"]["variant_id"];
-		readonly schemaId: ApiAgent["agent_version"]["schema_id"];
-		readonly name: ApiAgent["agent_version"]["name"];
-		readonly version: ApiAgent["agent_version"]["version"];
-		readonly platform: ApiAgent["agent_version"]["platform"];
-	};
-	readonly selfManaged: ApiAgent["self_managed"];
-	readonly status: {
-		readonly state: ApiAgent["status"]["state"];
-		readonly data: null | {
-			readonly dataCenterId: NonNullable<ApiAgent["status"]["data"]>["data_center_id"];
-			readonly dataCenterName: NonNullable<ApiAgent["status"]["data"]>["data_center_name"];
-			readonly clientAddr: NonNullable<ApiAgent["status"]["data"]>["client_addr"];
-			readonly tunnelAddr: NonNullable<ApiAgent["status"]["data"]>["tunnel_addr"];
-			readonly activityLatestEpochMs: NonNullable<ApiAgent["status"]["data"]>["activity_latest_epoch_ms"];
-			readonly activityStartEpochMs: NonNullable<ApiAgent["status"]["data"]>["activity_start_epoch_ms"];
-		};
-	};
-	readonly routing: {
-		readonly type: ApiAgent["routing"]["type"];
-	};
-	readonly routingDisabledIp6: ApiAgent["routing_disabled_ip6"];
-	readonly sortNum: ApiAgent["sort_num"];
-	readonly tunnels: readonly TunnelRef[];
-}
-
 /** Agent with actions */
-export interface AgentRef extends AgentData {
+export interface AgentRef extends ApiAgent {
 	/** Create a new tunnel for this agent
 	 * @param options - The options for the tunnel creation.
 	 * @param waitForAllocation - If true, the function will wait for the allocation to be created before returning.
@@ -248,6 +164,8 @@ export interface AgentRef extends AgentData {
 	delete(): Promise<void>;
 	/** Rename this agent */
 	rename(newName: string): Promise<void>;
+	/** Get the tunnels for this agent */
+	tunnels: readonly TunnelRef[];
 }
 
 /**
@@ -255,7 +173,7 @@ export interface AgentRef extends AgentData {
  * Use when the agent is not in codegen (e.g. newly created or from another source).
  */
 export interface AgentRefById {
-	readonly id: AgentId;
+	readonly id: ApiAgent["id"];
 	/** Create a new tunnel for this agent
 	 * @param options - The options for the tunnel creation.
 	 * @param waitForAllocation - If true, the function will wait for the allocation to be created before returning.
@@ -275,13 +193,12 @@ export interface AgentRefById {
 // ============ Allocation Types ============
 
 /**
- * IP allocation data with camelCase properties
- * Transformed from ApiIpAllocation for user-friendly access
+ * IP allocation data
  */
 export interface AllocationData {
-	readonly ipHostname: ApiIpAllocation["ip_hostname"];
-	readonly subId: ApiIpAllocation["sub_id"];
+	readonly ip_hostname: ApiIpAllocation["ip_hostname"];
+	readonly sub_id: ApiIpAllocation["sub_id"];
 	readonly region: ApiIpAllocation["region"];
-	readonly ipType: ApiIpAllocation["ip_type"];
-	readonly greTarget: ApiIpAllocation["gre_target"];
+	readonly ip_type: ApiIpAllocation["ip_type"];
+	readonly gre_target: ApiIpAllocation["gre_target"];
 }
