@@ -20,8 +20,22 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Remove local tarball reference for CI
+        run: |
+          # Remove the local tarball devDependency that doesn't exist in CI
+          sed -i '/"playit-reversed": "\.\/playit-reversed-.*\.tgz"/d' package.json
+
       - name: Install dependencies
         run: bun install
+
+      - name: Build project
+        run: bun run build
+
+      - name: Pack and install local package
+        run: |
+          npm pack
+          TARBALL=$(ls playit-reversed-*.tgz)
+          bun add "./$TARBALL"
 
       - name: Validate PlayIt API Key
         env:

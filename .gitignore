@@ -27,6 +27,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.test.local
 .env.production.local
 .env.local
+.env.secrets
+
+# act (GitHub Actions local runner) secrets
+.github/workflows/.env.secrets
 
 # caches
 .eslintcache

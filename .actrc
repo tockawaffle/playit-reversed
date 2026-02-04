@@ -1,0 +1,3 @@
+# Act configuration file
+# Use medium size Ubuntu image for better compatibility
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
