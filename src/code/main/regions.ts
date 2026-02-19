@@ -1,113 +1,89 @@
-export type RegionName = "GeoDNS (premium)" | "Global Anycast (free)" | "North America (premium)" | "Europe (premium)" | "Asia (premium)" | "India (premium)" | "South America (premium)" | "Seattle, Washington (USA premium)" | "Los Angeles, California (USA premium)" | "Denver, Colorado (USA premium)" | "Dallas, Texas (USA premium)" | "New York, New York (USA premium)" | "United Kingdom (EU premium)" | "Frankfurt, Germany (EU premium)" | "Bucharest, Romania (EU premium)" | "Tokyo, Japan (Asia premium)" | "Sydney, Australia (Asia premium)" | "Santiago, Chile (SA premium)";
+export const premiumRegions = [{
+	region: "australia" as const,
+	name: "sydney-1" as const,
+	regionTitle: "Sydney, Australia" as const,
+}, {
+	region: "chile" as const,
+	name: "santiago-1" as const,
+	regionTitle: "Chile, South America" as const,
+}, {
+	region: "south-america" as const,
+	name: "sao-paulo-1" as const,
+	regionTitle: "Brazil, South America" as const,
+}, {
+	region: "india" as const,
+	name: "mumbai-2" as const,
+	regionTitle: "Mumbai, India" as const,
+}, {
+	region: "india" as const,
+	name: "delhi-1" as const,
+	regionTitle: "New Delhi, India" as const,
+}, {
+	region: "india" as const,
+	name: "bangalore-1" as const,
+	regionTitle: "Bangalore, India" as const,
+}, {
+	region: "asia" as const,
+	name: "singapore-1" as const,
+	regionTitle: "Singapore" as const,
+}, {
+	region: "japan" as const,
+	name: "tokyo-1" as const,
+	regionTitle: "Japan" as const,
+}, {
+	region: "germany" as const,
+	name: "frankfurt-2" as const,
+	regionTitle: "Germany, Europe" as const,
+}, {
+	region: "europe" as const,
+	name: "madrid-2" as const,
+	regionTitle: "Spain, Europe" as const,
+}, {
+	region: "united-kingdom" as const,
+	name: "london-2" as const,
+	regionTitle: "United Kingdom, Europe" as const,
+}, {
+	region: "romania" as const,
+	name: "bucharest-1" as const,
+	regionTitle: "Romania, Europe" as const,
+}, {
+	region: "seattle-washington" as const,
+	name: "seattle-2" as const,
+	regionTitle: "Seattle, Washington USA" as const,
+}, {
+	region: "los-angeles-california" as const,
+	name: "los-angeles-2" as const,
+	regionTitle: "Los Angeles, California USA" as const,
+}, {
+	region: "new-york" as const,
+	name: "new-york-2" as const,
+	regionTitle: "NYC, New York USA" as const,
+}, {
+	region: "denver-colorado" as const,
+	name: "denver-1" as const,
+	regionTitle: "Denver, Colorado USA" as const,
+}, {
+	region: "dallas-texas" as const,
+	name: "dallas-3" as const,
+	regionTitle: "Dallas, Texas USA" as const,
+}, {
+	region: "north-america" as const,
+	name: "miami-3" as const,
+	regionTitle: "Miami, Florida USA" as const,
+}, {
+	region: "chicago-illinois" as const,
+	name: "chicago-2" as const,
+	regionTitle: "Chicago, Illinois USA" as const,
+}, {
+	region: "poland" as const,
+	name: "warsaw-1" as const,
+	regionTitle: "Poland, Europe" as const,
+}, {
+	region: "sweden" as const,
+	name: "stockholm-2" as const,
+	regionTitle: "Sweden, Europe" as const,
+}]
 
-export type RegionValue = "smart-global" | "global" | "north-america" | "europe" | "asia" | "india" | "south-america" | "seattle-washington" | "los-angeles-california" | "denver-colorado" | "dallas-texas" | "new-york" | "united-kingdom" | "germany" | "romania" | "japan" | "australia" | "chile";
-
-export const regions: Record<RegionValue, RegionName> = {
-	"smart-global": "GeoDNS (premium)",
-	global: "Global Anycast (free)",
-	"north-america": "North America (premium)",
-	europe: "Europe (premium)",
-	asia: "Asia (premium)",
-	india: "India (premium)",
-	"south-america": "South America (premium)",
-	"seattle-washington": "Seattle, Washington (USA premium)",
-	"los-angeles-california": "Los Angeles, California (USA premium)",
-	"denver-colorado": "Denver, Colorado (USA premium)",
-	"dallas-texas": "Dallas, Texas (USA premium)",
-	"new-york": "New York, New York (USA premium)",
-	"united-kingdom": "United Kingdom (EU premium)",
-	"germany": "Frankfurt, Germany (EU premium)",
-	"romania": "Bucharest, Romania (EU premium)",
-	"japan": "Tokyo, Japan (Asia premium)",
-	"australia": "Sydney, Australia (Asia premium)",
-	"chile": "Santiago, Chile (SA premium)",
-}
-
-export const regionKeys = [
-	"smart-global",
-	"global",
-	"north-america",
-	"europe",
-	"asia",
-	"india",
-	"south-america",
-	"seattle-washington",
-	"los-angeles-california",
-	"denver-colorado",
-	"dallas-texas",
-	"new-york",
-	"united-kingdom",
-	"germany",
-	"romania",
-	"japan",
-	"australia",
-	"chile",
-] as const satisfies readonly RegionKey[];
-
-export type RegionKey = keyof typeof regions;
-
-export type RegionPremiumStatus = {
-	[K in RegionKey]: boolean;
-};
-
-export const regionPremiumStatus: RegionPremiumStatus = {
-	"smart-global": true,
-	global: false,
-	"north-america": true,
-	europe: true,
-	asia: true,
-	india: true,
-	"south-america": true,
-	"seattle-washington": true,
-	"los-angeles-california": true,
-	"denver-colorado": true,
-	"dallas-texas": true,
-	"new-york": true,
-	"united-kingdom": true,
-	"germany": true,
-	"romania": true,
-	"japan": true,
-	"australia": true,
-	"chile": true,
-} as const;
-
-/**
- * Check if a region is premium.
- * @param region - The region key to check
- * @returns true if the region is premium, false otherwise
- */
-export function isPremiumRegion(region: RegionKey): boolean {
-	return regionPremiumStatus[region] ?? false;
-}
-
-/**
- * Get all premium region keys.
- */
-export function getPremiumRegions(): RegionKey[] {
-	return (Object.keys(regionPremiumStatus) as RegionKey[]).filter(
-		(key) => regionPremiumStatus[key] === true
-	);
-}
-
-/**
- * Get all free (non-premium) region keys.
- */
-export function getFreeRegions(): RegionKey[] {
-	return (Object.keys(regionPremiumStatus) as RegionKey[]).filter(
-		(key) => regionPremiumStatus[key] === false
-	);
-}
-
-/**
- * Type representing only premium region keys.
- */
-export type PremiumRegionKey = {
-	[K in RegionKey]: typeof regionPremiumStatus[K] extends true ? K : never;
-}[RegionKey];
-
-/**
- * Type representing only free (non-premium) region keys.
- */
-export type FreeRegionKey = {
-	[K in RegionKey]: typeof regionPremiumStatus[K] extends false ? K : never;
-}[RegionKey];
+export const premiumRegionsMap = new Map(premiumRegions.map(region => [region.region, region]));
+export type PremiumRegion = typeof premiumRegions[number];
+export type PremiumRegionKey = keyof typeof premiumRegionsMap;

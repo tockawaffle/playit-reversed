@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Dates are using the NORMAL format of DD-MM-YYYY.
 
+## [0.1.0] - 18-02-2026
+
+### Added
+- **Unified `createTunnel` function**: Single entry point for all tunnel creation (dedicated IP, region, application-specific), replacing `createStaticIpTunnel` and `createRegionTunnel`.
+- **`CreateTunnelOptions` type**: Structured options with `name`, `config`, `endpoint` (dedicated-ip or region), and `protocol` (raw-ports or tunnel-type).
+- **Individual API schemas**: `account-overview.ts`, `allocations-list.ts`, `tunnels-delete.ts`, and barrel export `index.ts` for all bfetch schemas.
+- **`TunnelData`, `AgentData`, `AllocationData` types**: Exported type aliases derived from Zod schemas for use in templates and generated code.
+- **`getTunnels()` / `getTunnel(id)`**: Live API fetching methods on the generated `playit` object.
+- **Cookie auto-rotation**: `__Secure-WebAuth` cookie is automatically persisted and rotated in `.env` when the API issues a new one.
+- **Actions test suite**: `src/code/actions.test.ts` for testing tunnel create/delete flows with proper 5-minute timeouts.
+- **Request body middleware**: bfetch `onRequest` hook serializes bodies for `v1/tunnels/create` and `allocations/list` endpoints.
+
+### Changed
+- **API architecture**: Migrated from single `@get/account/settings/allocations` (Remix loader) to parallel `@post` calls (`agents/list`, `v1/tunnels/list`, `allocations/list`, `account/overview`).
+- **Authentication**: Environment variable renamed from `PLAYIT_API_KEY` (`__session`) to `PLAYIT_SECURE_WEBAUTH` (`__Secure-WebAuth`).
+- **All action functions**: Removed `csrfToken` parameter from `deleteTunnel`, `updateTunnel`, `enableTunnel`, `disableTunnel`, `deleteAgent`, `renameAgent`, and `renameTunnel`.
+- **`deleteTunnel`**: Now calls `@post/tunnels/delete` with `{ tunnel_id }` body instead of the old CSRF-based route.
+- **`AllocationResult` type**: Rewritten with `InternalAllocated` and `PublicAllocationPending` statuses (documented that `PublicAllocationPending` is the only status returned by the API).
+- **`checkAllocationStatus`**: Uses `tunnelsListOutputSchema` and checks `offline_reasons`/`port_allocation_requests` instead of `alloc.status`.
+- **`TunnelRef` interface**: Now extends a `TunnelData` type alias instead of directly extending the Zod-inferred array type.
+- **Code generation templates**: Emit self-contained imports and types — no Zod references leak into generated output.
+- **Client `fetchAll()`**: Refactored to use `Promise.all` across four individual `@post` endpoints.
+- **CLI**: Uses `PLAYIT_SECURE_WEBAUTH` env var; data validation uses individual Zod schemas per endpoint.
+- **`tunnels-list` schema**: `public_ip` in `port_allocation_requests` changed to `z.string().nullable()` (null when allocation is pending).
+- **Tests**: Rewritten to use `agent.createTunnel()` API, `tunnel.public_allocations`, and proper timeouts.
+- **README**: Fully updated documentation reflecting the new API, types, env vars, and architecture.
+
+### Removed
+- **`createStaticIpTunnel`** and **`createRegionTunnel`** functions (replaced by unified `createTunnel`).
+- **`CreateStaticIpTunnelOptions`** and **`CreateRegionTunnelOptions`** types.
+- **`csrfToken`** from all public API signatures, generated code, and tests.
+- **`settings-allocations` schema** (replaced by individual endpoint schemas).
+- **`add-dedicated-ip`** and **`add-shared`** schema imports from actions.
+- **`user.csrfToken`** / `generated/user.ts` CSRF references from generated code and test suites.
+
 ## [0.1.0-beta.6.1.0] - 03-02-2026
 
 ### Added

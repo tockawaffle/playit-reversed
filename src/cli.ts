@@ -9,12 +9,16 @@
 import fs from "fs";
 import path from "path";
 import readline from "readline";
+import type z from "zod";
 import { PlayIt } from "./client";
 import generateGenericCode, { generateTypesFile, generateUserFile, type CodegenConfig } from "./code/generic";
-import { allocationOutputSchema, type AccountData, type Agent, type IpAllocation, type Tunnel } from "./code/main/bfetch/schemas/settings-allocations";
+import { accountOverviewOutputSchema } from "./code/main/bfetch/schemas/account-overview";
+import { agentsListOutputSchema } from "./code/main/bfetch/schemas/agents-list";
+import { allocationsListOutputSchema } from "./code/main/bfetch/schemas/allocations-list";
+import { tunnelsListOutputSchema } from "./code/main/bfetch/schemas/tunnels-list";
 
 const ENV_FILE = ".env";
-const ENV_KEY = "PLAYIT_API_KEY";
+const ENV_KEY = "PLAYIT_SECURE_WEBAUTH";
 const GENERATED_DIR = "generated";
 const DATA_FILE = `${GENERATED_DIR}/playit-data.json`;
 
@@ -91,7 +95,7 @@ async function setup() {
 		console.log(`✓ Found ${fetchedData.agents.length} agent(s)`);
 
 		for (const agent of fetchedData.agents) {
-			const agentTunnels = fetchedData.tunnels.filter(t => t.origin.data.agent_id === agent.id);
+			const agentTunnels = fetchedData.tunnels.filter(t => t.origin.details.agent_id === agent.id);
 			const statusState = agent.status.state;
 			console.log(`  • ${agent.name} (${statusState}) - ${agentTunnels.length} tunnel(s)`);
 		}
@@ -99,7 +103,7 @@ async function setup() {
 		console.log(`\n✓ Found ${fetchedData.tunnels.length} tunnel(s)`);
 
 		for (const tunnel of fetchedData.tunnels) {
-			console.log(`  • ${tunnel.name} (${tunnel.port_type}) → ${tunnel.origin.data.local_ip}:${tunnel.origin.data.local_port}`);
+			console.log(`  • ${tunnel.name} (${tunnel.port_type}) → agent: ${tunnel.origin.details.name}`);
 		}
 
 		console.log(`\n✓ Found ${fetchedData.allocations.length} IP allocation(s)`);
@@ -145,10 +149,10 @@ async function setup() {
 const toIdentifier = (name: string) => name.replace(/[^a-zA-Z0-9]/g, "_");
 
 interface StoredData {
-	tunnels: Tunnel[];
-	agents: Agent[];
-	allocations: IpAllocation[];
-	account: AccountData["account"];
+	tunnels: z.infer<typeof tunnelsListOutputSchema>["data"]["tunnels"];
+	agents: z.infer<typeof agentsListOutputSchema>["data"]["agents"];
+	allocations: z.infer<typeof allocationsListOutputSchema>["data"]["ips"];
+	account: z.infer<typeof accountOverviewOutputSchema>["data"];
 	updatedAt?: string;
 }
 
@@ -161,13 +165,11 @@ async function generateTypes(data?: StoredData): Promise<void> {
 		}
 		data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8")) as StoredData;
 
-		// Validate the data using the new schema
-		const routesAccount = allocationOutputSchema.shape.state.shape.loaderData.shape["routes/account"];
 		const validations = [
-			{ key: "tunnels", result: routesAccount.shape.tunnels.shape.tunnels.safeParse(data.tunnels) },
-			{ key: "agents", result: routesAccount.shape.agents.shape.agents.safeParse(data.agents) },
-			{ key: "allocations", result: allocationOutputSchema.shape.state.shape.loaderData.shape["routes/account/settings/allocations"].shape.ips.safeParse(data.allocations) },
-			{ key: "account", result: allocationOutputSchema.shape.state.shape.loaderData.shape["routes/account"].safeParse(data.account) },
+			{ key: "tunnels", result: tunnelsListOutputSchema.shape.data.shape.tunnels.safeParse(data.tunnels) },
+			{ key: "agents", result: agentsListOutputSchema.shape.data.shape.agents.safeParse(data.agents) },
+			{ key: "allocations", result: allocationsListOutputSchema.shape.data.shape.ips.safeParse(data.allocations) },
+			{ key: "account", result: accountOverviewOutputSchema.shape.data.safeParse(data.account) },
 		];
 
 		const failures = validations.filter(v => !v.result.success);

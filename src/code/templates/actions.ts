@@ -12,4 +12,4 @@
 export * from "../actions";
 
 // Re-export types for template validation
-export type { CreateStaticIpTunnelOptions, UpdateTunnelOptions } from "./types";
+export type { CreateTunnelOptions, UpdateTunnelOptions } from "./types";

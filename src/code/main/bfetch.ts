@@ -3,12 +3,20 @@ import "dotenv/config";
 import { atom } from "nanostores";
 import path from "path";
 
+import {
+	accountOverviewOutputSchema,
+	agentsListOutputSchema,
+	allocationsListInputSchema,
+	allocationsListOutputSchema,
+	sessionExpiredErrorSchema,
+	tunnelsCreateInputSchema,
+	tunnelsCreateOutputSchema,
+	tunnelsDeleteInputSchema,
+	tunnelsDeleteOutputSchema,
+	tunnelsListOutputSchema,
+} from "./bfetch/schemas";
+
 import Debug from "debug";
-import { z } from "zod";
-import { sessionExpiredErrorSchema } from "./bfetch/schemas/@defaults/session-expired";
-import { agentsListOutputSchema } from "./bfetch/schemas/agents-list";
-import { tunnelsCreateInputSchema, tunnelsCreateOutputSchema } from "./bfetch/schemas/tunnels-create";
-import { tunnelsListOutputSchema } from "./bfetch/schemas/tunnels-list";
 const debugMtim = Debug("playit:bfetch:mtim");
 
 // this does not guarantee that this will always work, but as far as i tested, it works.
@@ -32,22 +40,17 @@ export const playitSchema = createSchema({
 		error: sessionExpiredErrorSchema
 	},
 	"@post/tunnels/delete": {
-		input: z.string().refine((value) => {
-			try {
-				const data = JSON.parse(value);
-				const actualSchema = z.object({
-					tunnel_id: z.uuidv4(),
-				})
-				return actualSchema.safeParse(data).success;
-			} catch (e) {
-				console.error(e);
-				return false;
-			}
-		}),
-		output: z.object({
-			status: z.literal("success"),
-			data: z.null()
-		}),
+		input: tunnelsDeleteInputSchema,
+		output: tunnelsDeleteOutputSchema,
+		error: sessionExpiredErrorSchema
+	},
+	"@post/account/overview": {
+		output: accountOverviewOutputSchema,
+		error: sessionExpiredErrorSchema
+	},
+	"@post/allocations/list": {
+		input: allocationsListInputSchema,
+		output: allocationsListOutputSchema,
 		error: sessionExpiredErrorSchema
 	}
 }, { strict: true });
@@ -112,7 +115,30 @@ export function createPlayItFetch(options?: Omit<CreateFetchOption, "schema" | "
 			// Use latest cookie from storage
 			const currentCookie = storedCookie.get() || initialCookie;
 			context.headers.set("Cookie", `__Secure-WebAuth=${currentCookie}`);
-			return context;
+
+			const urlString = typeof context.url === "string"
+				? context.url
+				: context.url.toString();
+
+			switch (true) {
+				case urlString.includes("v1/tunnels/create"):
+					const body = context.body;
+					const bodySchema = playitSchema.schema["@post/v1/tunnels/create"].input;
+					const bodyParsed = bodySchema.safeParse(body);
+					if (!bodyParsed.success) {
+						throw new Error(`Invalid body: ${bodyParsed.error.message}`);
+					}
+					context.body = JSON.stringify(bodyParsed.data);
+
+					debugMtim(`onRequest (Check if body is a JSON string):\nisJson: ${context.body instanceof Object ? "true" : "false"}\nisString: ${typeof context.body === "string" ? "true" : "false"}`)
+
+					return context;
+				case urlString.includes("allocations/list"):
+					context.body = JSON.stringify(context.body);
+					return context;
+				default:
+					return context;
+			}
 		},
 		onResponse: async (context) => {
 			// Check if session expired (before parsing cookies)
@@ -181,6 +207,7 @@ export function createPlayItFetch(options?: Omit<CreateFetchOption, "schema" | "
 					}
 				}
 			}
+
 			return context;
 		},
 	});

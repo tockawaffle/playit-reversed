@@ -1,6 +1,10 @@
 
+import type z from "zod";
 import { createPlayItFetch } from "./code/main/bfetch";
-import type { AccountData, Agent, IpAllocation as Allocation, Tunnel } from "./code/main/bfetch/schemas/settings-allocations";
+import type { accountOverviewOutputSchema } from "./code/main/bfetch/schemas/account-overview";
+import type { agentsListOutputSchema } from "./code/main/bfetch/schemas/agents-list";
+import type { allocationsListOutputSchema } from "./code/main/bfetch/schemas/allocations-list";
+import type { tunnelsListOutputSchema } from "./code/main/bfetch/schemas/tunnels-list";
 import { requireCodegen } from "./guard";
 
 /**
@@ -48,23 +52,28 @@ export class PlayIt {
 	 * - routes/account/settings/allocations (IP allocations)
 	 */
 	async fetchAll(): Promise<{
-		agents: Agent[];
-		tunnels: Tunnel[];
-		allocations: Allocation[];
-		account: AccountData["account"];
+		agents: z.infer<typeof agentsListOutputSchema>["data"]["agents"];
+		tunnels: z.infer<typeof tunnelsListOutputSchema>["data"]["tunnels"];
+		allocations: z.infer<typeof allocationsListOutputSchema>["data"]["ips"];
+		account: z.infer<typeof accountOverviewOutputSchema>["data"];
 	}> {
-		// The allocations endpoint contains everything we need in one request
-		const { data, error } = await this.$fetch("@get/account/settings/allocations");
+		const [agentsRes, tunnelsRes, allocationsRes, accountRes] = await Promise.all([
+			this.$fetch("@post/agents/list"),
+			this.$fetch("@post/v1/tunnels/list"),
+			this.$fetch("@post/allocations/list", { body: { alloc_id: null } }),
+			this.$fetch("@post/account/overview"),
+		]);
 
-		if (error) {
-			throw new Error("Failed to fetch PlayIt data: " + error.message);
-		}
+		if (agentsRes.error) throw new Error("Failed to fetch agents: " + agentsRes.error.message);
+		if (tunnelsRes.error) throw new Error("Failed to fetch tunnels: " + tunnelsRes.error.message);
+		if (allocationsRes.error) throw new Error("Failed to fetch allocations: " + allocationsRes.error.message);
+		if (accountRes.error) throw new Error("Failed to fetch account: " + accountRes.error.message);
 
 		return {
-			agents: data.state.loaderData["routes/account"].agents.agents,
-			tunnels: data.state.loaderData["routes/account"].tunnels.tunnels,
-			allocations: data.state.loaderData["routes/account/settings/allocations"].ips.filter((ip): ip is NonNullable<typeof ip> => ip !== undefined),
-			account: { ...data.state.loaderData["routes/account"].overview, csrfToken: data.state.loaderData["routes/account"].csrfToken },
-		}
+			agents: agentsRes.data.data.agents,
+			tunnels: tunnelsRes.data.data.tunnels,
+			allocations: allocationsRes.data.data.ips,
+			account: accountRes.data.data,
+		};
 	}
 }

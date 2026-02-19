@@ -43,7 +43,7 @@ const tunnelsListOutputSchema = z.object({
 						status: z.string(),
 						region: z.string(),
 						public_port: z.number().positive().nullable(),
-						public_ip: z.string(),
+						public_ip: z.string().nullable(),
 					})
 				),
 				public_allocations: z.array(

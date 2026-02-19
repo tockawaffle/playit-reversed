@@ -1,4 +1,7 @@
-import type { AccountData, Agent, IpAllocation as Allocation, Tunnel } from "./main/bfetch/schemas/settings-allocations";
+import type z from "zod";
+
+import type { accountOverviewOutputSchema, agentsListOutputSchema, allocationsListOutputSchema, tunnelsListOutputSchema } from "./main/bfetch/schemas";
+
 import {
 	getActionsImport,
 	getFactoryTemplate,
@@ -28,17 +31,17 @@ export interface CodegenConfig {
 	/** Generated allocation instances code */
 	allocationInstances: string;
 	/** Raw agent data */
-	agents: Agent[];
+	agents: z.infer<typeof agentsListOutputSchema>["data"]["agents"];
 	/** Generated tunnel instances code */
 	tunnelInstances: string;
 	/** Tunnel key identifiers */
 	tunnelKeys: string[];
 	/** Raw allocation data */
-	allocations: Allocation[];
+	allocations: z.infer<typeof allocationsListOutputSchema>["data"]["ips"];
 	/** Raw tunnel data */
-	tunnels: Tunnel[];
+	tunnels: z.infer<typeof tunnelsListOutputSchema>["data"]["tunnels"];
 	/** Raw user data */
-	user: AccountData["account"];
+	user: z.infer<typeof accountOverviewOutputSchema>["data"];
 	/** Function to convert names to identifiers */
 	toIdentifier: (name: string) => string;
 }
@@ -132,7 +135,7 @@ ${config.tunnelInstances}
 
 /** All tunnels (with actions) - typed as Record for index signature compatibility */
 export const tunnels = {
-${config.tunnelKeys.map(key => `	${key}: createTunnelRef(_tunnelData.${key} as TunnelData, "${config.user.csrfToken}")`).join(",\n")}
+${config.tunnelKeys.map(key => `	${key}: createTunnelRef(_tunnelData.${key} as unknown as TunnelData)`).join(",\n")}
 } satisfies Record<TunnelKey, TunnelRef>;
 
 /** Array of all tunnel IDs */
@@ -180,7 +183,8 @@ function generateAgentInstances(config: CodegenConfig): string {
 ${statusDataStr}
 		},
 		routing: {
-			type: "${a.routing.type}"
+			type: "${a.routing.type}",
+			details: "${a.routing.details}"
 		},
 		routing_disabled_ip6: ${a.routing_disabled_ip6},
 		sort_num: ${a.sort_num}
@@ -190,10 +194,10 @@ ${statusDataStr}
 	const agentRefEntries = config.agents.map(a => {
 		const agentTunnelRefs = config.tunnels
 			.map((t, i) => ({ tunnel: t, key: config.tunnelKeys[i] }))
-			.filter(({ tunnel }) => tunnel.origin.data.agent_id === a.id)
+			.filter(({ tunnel }) => tunnel.origin.details.agent_id === a.id)
 			.map(({ key }) => `tunnels["${key}"]`)
 			.join(", ");
-		return `	${config.toIdentifier(a.name)}: createAgentRef(_agentData.${config.toIdentifier(a.name)}, [${agentTunnelRefs}], "${config.user.csrfToken}")`;
+		return `	${config.toIdentifier(a.name)}: createAgentRef(_agentData.${config.toIdentifier(a.name)}, [${agentTunnelRefs}])`;
 	}).join(",\n");
 
 	return `// ============ Agent Instances ============
@@ -300,10 +304,10 @@ export const playit = {
 	tunnels,
 	
 	/** Get a tunnel ref by ID (for tunnels not in codegen, e.g. newly created) */
-	tunnel: (id: TunnelId) => createTunnelRefById(id, "${config.user.csrfToken}"),
+	tunnel: (id: TunnelId) => createTunnelRefById(id),
 	
 	/** Get an agent ref by ID (for agents not in codegen, e.g. newly created) */
-	agent: (id: AgentId) => createAgentRefById(id, "${config.user.csrfToken}"),
+	agent: (id: AgentId) => createAgentRefById(id),
 	
 	/** All IP allocations */
 	allocations,
@@ -328,9 +332,6 @@ export const playit = {
 
 	/** Get a tunnel by its MAIN ID */
 	getTunnel: GetTunnel,
-
-	/** Get all available allocations */
-	getAvailableAllocations: GetAvailableAllocations,
 };
 
 export default playit;

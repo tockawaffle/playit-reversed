@@ -23,15 +23,9 @@ import type {
 	AgentName,
 	AgentRef,
 	AgentRefById,
-	AllocatedTunnelAlloc,
-	AllocationData,
 	AllocationKey,
-	ApiTunnel,
-	CreateStaticIpTunnelOptions,
-	DisabledTunnelAlloc,
-	PendingTunnelAlloc,
+	CreateTunnelOptions,
 	PlayitResponse,
-	TunnelAlloc,
 	TunnelId,
 	TunnelKey,
 	TunnelName,
@@ -40,7 +34,7 @@ import type {
 	UpdateTunnelOptions,
 } from "./types";
 
-import type { Agent as ApiAgent, Tunnel as TunnelData } from "playit-reversed";
+import type { Agent as ApiAgent, Tunnel as TunnelData } from "../../types";
 
-export type { AgentId, AgentKey, AgentName, AgentRef, AgentRefById, AllocatedTunnelAlloc, AllocationData, AllocationKey, ApiAgent, ApiTunnel, CreateStaticIpTunnelOptions, DisabledTunnelAlloc, PendingTunnelAlloc, PlayitResponse, TunnelAlloc, TunnelData, TunnelId, TunnelKey, TunnelName, TunnelRef, TunnelRefById, UpdateTunnelOptions };
+export type { AgentId, AgentKey, AgentName, AgentRef, AgentRefById, AllocationKey, ApiAgent, CreateTunnelOptions, PlayitResponse, TunnelData, TunnelId, TunnelKey, TunnelName, TunnelRef, TunnelRefById, UpdateTunnelOptions };
 

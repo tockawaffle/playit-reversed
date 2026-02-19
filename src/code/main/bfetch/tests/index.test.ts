@@ -58,7 +58,7 @@ test("test agents list", async () => {
 test("test create dedicated ip tunnel (protocol)", async () => {
 	const $fetch = createPlayItFetch();
 	const { data, error } = await $fetch("@post/v1/tunnels/create", {
-		body: JSON.stringify({
+		body: {
 			"name": "Webserver",
 			"protocol": {
 				"type": "raw-ports",
@@ -94,7 +94,7 @@ test("test create dedicated ip tunnel (protocol)", async () => {
 				}
 			},
 			"enabled": true
-		})
+		}
 	})
 	if (error) throw new Error(`Failed to create dedicated ip tunnel (protocol): ${JSON.stringify(error)}`);
 	expect(data).toBeObject();
@@ -105,7 +105,7 @@ test("test create dedicated ip tunnel (protocol)", async () => {
 test("test create dedicated ip tunnel (game type)", async () => {
 	const $fetch = createPlayItFetch();
 	const { data, error } = await $fetch("@post/v1/tunnels/create", {
-		body: JSON.stringify({
+		body: {
 			"name": "Minecraft (Nuvisca)",
 			"protocol": {
 				"type": "tunnel-type",
@@ -137,7 +137,7 @@ test("test create dedicated ip tunnel (game type)", async () => {
 				}
 			},
 			"enabled": true
-		})
+		}
 	})
 	if (error) throw new Error(`Failed to create dedicated ip tunnel (game type): ${JSON.stringify(error)}`);
 	expect(data).toBeObject();

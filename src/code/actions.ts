@@ -6,11 +6,10 @@
  */
 
 import Debug from "debug";
+import type z from "zod";
 import { createPlayItFetch } from "./main/bfetch";
-import type { AddDedicatedIpSchemaBody } from "./main/bfetch/schemas/add-dedicated-ip";
-import type { AddSharedSchemaBody } from "./main/bfetch/schemas/add-shared";
-import { allocationOutputSchema, type IpAllocation, type Tunnel, type TunnelAllocData } from "./main/bfetch/schemas/settings-allocations";
-import type { CreateRegionTunnelOptions, CreateStaticIpTunnelOptions, UpdateTunnelOptions } from "./templates/types";
+import { tunnelsCreateInputSchema, tunnelsListOutputSchema } from "./main/bfetch/schemas";
+import type { CreateTunnelOptions, UpdateTunnelOptions } from "./templates/types";
 
 const debugCSITAction = Debug("playit:actions:createStaticIpTunnel");
 
@@ -20,35 +19,37 @@ const $fetch = createPlayItFetch();
 /**
  * Delete a tunnel by ID
  */
-export async function deleteTunnel(tunnelId: string, csrfToken: string): Promise<void> {
-	const { error } = await $fetch("@post/account/tunnels/:tunnelId/delete", {
-		params: { tunnelId },
-		body: { _csrf_token: csrfToken },
+export async function deleteTunnel(tunnelId: string): Promise<boolean> {
+	const { data, error } = await $fetch("@post/tunnels/delete", {
+		body: JSON.stringify({
+			tunnel_id: tunnelId,
+		}),
+		method: "POST",
 	});
+
 	if (error) {
 		throw new Error(`Failed to delete tunnel ${tunnelId}: ${error.message}`);
 	}
+	if (data.status !== "success") {
+		throw new Error(`Failed to delete tunnel ${tunnelId}: unexpected status ${data.status}`);
+	}
+
+	return data.status === "success";
 }
 
 /**
  * Rename a tunnel
  */
-export async function renameTunnel(tunnelId: string, name: string, csrfToken: string): Promise<void> {
-	const { error } = await $fetch("@post/account/tunnels/:tunnelId/rename", {
-		params: { tunnelId },
-		body: { _csrf_token: csrfToken, name },
-	});
-	if (error) {
-		throw new Error(`Failed to rename tunnel ${tunnelId}: ${error.message}`);
-	}
+export async function renameTunnel(tunnelId: string, name: string): Promise<void> {
+	throw new Error("Not implemented yet. API endpoint not discovered.");
 }
 
 /**
  * Update a tunnel (currently only supports renaming)
  */
-export async function updateTunnel(tunnelId: string, options: UpdateTunnelOptions, csrfToken: string): Promise<void> {
+export async function updateTunnel(tunnelId: string, options: UpdateTunnelOptions): Promise<void> {
 	if (options.name) {
-		await renameTunnel(tunnelId, options.name, csrfToken);
+		await renameTunnel(tunnelId, options.name);
 	}
 	// TODO: Implement localPort and localIp updates when API is available
 	if (options.localPort !== undefined || options.localIp !== undefined) {
@@ -59,7 +60,7 @@ export async function updateTunnel(tunnelId: string, options: UpdateTunnelOption
 /**
  * Enable a tunnel
  */
-export async function enableTunnel(tunnelId: string, csrfToken: string): Promise<void> {
+export async function enableTunnel(tunnelId: string): Promise<void> {
 	// TODO: Implement when API endpoint is discovered
 	throw new Error(`enableTunnel(${tunnelId}) - Not implemented yet. API endpoint not discovered.`);
 }
@@ -67,7 +68,7 @@ export async function enableTunnel(tunnelId: string, csrfToken: string): Promise
 /**
  * Disable a tunnel
  */
-export async function disableTunnel(tunnelId: string, csrfToken: string): Promise<void> {
+export async function disableTunnel(tunnelId: string): Promise<void> {
 	// TODO: Implement when API endpoint is discovered
 	throw new Error(`disableTunnel(${tunnelId}) - Not implemented yet. API endpoint not discovered.`);
 }
@@ -75,7 +76,7 @@ export async function disableTunnel(tunnelId: string, csrfToken: string): Promis
 /**
  * Delete an agent
  */
-export async function deleteAgent(agentId: string, csrfToken: string): Promise<void> {
+export async function deleteAgent(agentId: string): Promise<void> {
 	// TODO: Implement when API endpoint is discovered
 	throw new Error(`deleteAgent(${agentId}) - Not implemented yet. API endpoint not discovered.`);
 }
@@ -83,7 +84,7 @@ export async function deleteAgent(agentId: string, csrfToken: string): Promise<v
 /**
  * Rename an agent
  */
-export async function renameAgent(agentId: string, newName: string, csrfToken: string): Promise<void> {
+export async function renameAgent(agentId: string, newName: string): Promise<void> {
 	// TODO: Implement when API endpoint is discovered
 	throw new Error(`renameAgent(${agentId}, ${newName}) - Not implemented yet. API endpoint not discovered.`);
 }
@@ -91,212 +92,111 @@ export async function renameAgent(agentId: string, newName: string, csrfToken: s
 /**
  * Allocation data returned from createStaticIpTunnel
  */
-export type AllocationResult = {
-	readonly ipHostname: string;
-} & (
-		| { readonly status: "pending" }
-		| { readonly status: "allocated"; readonly data: TunnelAllocData & { mainId: string } }
-		| { readonly status: "disabled"; readonly reason: NonNullable<NonNullable<TunnelAllocData>["reason"]> }
-	);
-
-async function checkAllocationStatus(data: { allocation: string, status: number }, ipHostname: string): Promise<AllocationResult> {
-	const newData = data as {
-		allocation: string,
-		status: number
+export type AllocationResult = (
+	| {
+		/**
+		 * @warning "PublicAllocationPending" is the only status that the PlayIt API returns when a tunnel is created, all other statuses are internal to this library and are here only for convenience.
+		*/
+		readonly status: "InternalAllocated";
+		readonly data: z.infer<typeof tunnelsListOutputSchema.shape.data>
+	} |
+	{
+		/**
+		 * @warning "PublicAllocationPending" is the only status that the PlayIt API returns when a tunnel is created, all other statuses are internal to this library and are here only for convenience.
+		*/
+		readonly status: "PublicAllocationPending";
 	}
+)
+
+async function checkAllocationStatus(tunnelId: string): Promise<AllocationResult> {
 	// Fetch the tunnel data from the API response until the allocation is created
-	const { data: newTunnel, error: newTunnelError } = await $fetch("@get/account/settings/allocations");
+	const { data: newTunnel, error: newTunnelError } = await $fetch("@post/v1/tunnels/list");
 
 	if (newTunnelError) {
 		throw new Error(`Failed to fetch tunnel data: ${newTunnelError.message}`);
 	}
 
 	// This endpoint usually returns all tunnels for the account, so we need to find the one that was just created
-	const validateResponse = allocationOutputSchema.safeParse(newTunnel);
+	const validateResponse = tunnelsListOutputSchema.safeParse(newTunnel);
 	if (!validateResponse.success) {
 		throw new Error(`Failed to validate tunnel data: ${validateResponse.error.message}`);
 	}
 
 	// Find the tunnel in the response
-	const tunnel = validateResponse.data.state.loaderData["routes/account"].tunnels.tunnels.find(tunnel => tunnel.id === newData.allocation);
+	const tunnel = validateResponse.data.data.tunnels.find(tunnel => tunnel.id === tunnelId);
 	if (!tunnel) {
-		throw new Error(`Tunnel not found in response: ${newData.allocation}`);
-	} else if (tunnel.alloc.status === "pending") {
-		debugCSITAction(`Allocation is pending for tunnel ${newData.allocation}`);
+		throw new Error(`Tunnel not found in response: ${tunnelId}`);
+	} else if (
+		[...(tunnel.offline_reasons ?? []), ...(tunnel.port_allocation_requests?.map(request => request.status) ?? [])].includes("PublicAllocationPending")
+	) {
 		return {
-			ipHostname: ipHostname,
-			status: "pending"
+			status: "PublicAllocationPending",
 		}
 	}
 
-	debugCSITAction(`Allocation is allocated for tunnel ${newData.allocation}`);
 	return {
-		ipHostname: tunnel.alloc.data!.ip_hostname || "",
-		status: "allocated",
+		status: "InternalAllocated",
 		data: {
-			...tunnel.alloc.data!,
-			mainId: tunnel.id
-		}
+			tunnels: [tunnel],
+		},
 	}
 }
-
 
 /**
- * Create a static IP tunnel for an agent
  * 
- * @param agentId - The ID of the agent to create the tunnel for.
  * @param options - The options for the tunnel creation.
- * @param waitForAllocation - If true, the function will wait for the allocation to be created before returning.
- * @param waitForAllocatedStatus - If true, the function will wait for the allocation to be allocated before returning. If using this, you should also set waitForAllocation to true.
- * @returns The allocation data for the tunnel if waitForAllocation is true and waitForAllocatedStatus is true and nothing otherwise.
+ * @param waitForCreation - Whether to wait for the tunnel to be created. This creates a blocking call that will wait for the tunnel to be created before returning. Will timeout after 5 seconds
+ * @returns 
  */
-export async function createStaticIpTunnel(
-	agentId: string,
-	options: CreateStaticIpTunnelOptions,
-	waitForAllocation: boolean = true,
-	waitForAllocatedStatus: boolean = false
-): Promise<AllocationResult> {
-	const tunnelType = options.tunnel_type;
-	const isPortType = tunnelType === "both" || tunnelType === "tcp" || tunnelType === "udp";
+export async function CreateTunnel(
+	options: CreateTunnelOptions & { agentId: string },
+	waitForCreation: boolean = true,
+) {
+	const body = {
+		...options,
+		enabled: true,
+		origin: {
+			type: "agent",
+			data: {
+				agent_id: options.agentId,
+				config: options.config,
+			},
+		},
+	} satisfies z.infer<typeof tunnelsCreateInputSchema>
 
-	const body: AddDedicatedIpSchemaBody = isPortType
-		? {
-			_csrf_token: options.__csrf_token,
-			dedicated_ip: options.dedicated_ip,
-			tunnel_type: tunnelType,
-			enabled: "on",
-			"tunnel-desc": options["tunnel-desc"],
-			public_port: options.public_port,
-			port_count: options.port_count,
-		}
-		: {
-			_csrf_token: options.__csrf_token,
-			dedicated_ip: options.dedicated_ip,
-			tunnel_type: tunnelType,
-			enabled: "on",
-			public_port: options.public_port,
-		};
-
-	debugCSITAction("Creating tunnel with body: %O", body);
-
-	// Map options to API format
-	const { data, error } = await $fetch("@post/account/agents/:agentId/tunnels/add/dedicated-ip", {
-		params: { agentId },
-		body
+	const { data, error } = await $fetch("@post/v1/tunnels/create", {
+		body,
+		method: "POST",
 	});
-
 	if (error) {
 		throw new Error(`Failed to create tunnel: ${error.message}`);
 	}
 
-	if (waitForAllocation) {
-		// Currently, this is technically not correct as the correct way to do this is by polling the allocation id endpoint until it is allocated, but this also works so I'll leave it for now.
-
-		if (waitForAllocatedStatus) {
-			debugCSITAction("Waiting for allocation to be allocated");
-			const allocData = data as { allocation: string; status: number };
-			for (let elapsed = 0; elapsed < 5 * 60 * 1000; elapsed += 2000) {
-				const result = await checkAllocationStatus(allocData, options.dedicated_ip);
-				if (result.status !== "pending") {
-					debugCSITAction("Allocation is not pending, returning result");
-					return result;
-				}
-				debugCSITAction("Allocation is pending, waiting +2 seconds before checking again");
-				await new Promise(r => setTimeout(r, 2000));
+	if (waitForCreation) {
+		for (let elapsed = 0; elapsed < 5 * 60 * 1000; elapsed += 2000) {
+			const result = await checkAllocationStatus(data.data.id);
+			if (result.status === "InternalAllocated") {
+				return result.data.tunnels[0];
 			}
-			throw new Error("Allocation did not complete within 5 minutes");
+			await new Promise(resolve => setTimeout(resolve, 2000));
 		}
-
-		return await checkAllocationStatus(data as { allocation: string; status: number }, options.dedicated_ip);
+		throw new Error("Timeout waiting for tunnel allocation");
 	}
 
-	return {
-		ipHostname: options.dedicated_ip,
-		status: "disabled",
-		reason: "Not checking for allocation status, tunnel is not actually disabled but could be pending.",
-	};
+	return data.data;
 }
 
-const debugCRTAction = Debug("playit:actions:createRegionTunnel");
-
-export async function createRegionTunnel(
-	agentId: string,
-	options: CreateRegionTunnelOptions,
-	waitForAllocation: boolean = true,
-	waitForAllocatedStatus: boolean = false
-): Promise<AllocationResult> {
-	const tunnelType = options.tunnelType;
-	const isPortType = tunnelType === "both" || tunnelType === "tcp" || tunnelType === "udp";
-
-	const body: AddSharedSchemaBody = isPortType
-		? {
-			user: options.user,
-			__csrf_token: options.csrfToken,
-			enabled: "on",
-			region: options.region as AddSharedSchemaBody["region"],
-			tunnel_type: tunnelType,
-			"tunnel-desc": options.tunnelCreationReason,
-			local_port: options.localPort,
-			port_count: options.portCount,
-		}
-		: {
-			user: options.user,
-			__csrf_token: options.csrfToken,
-			region: options.region as AddSharedSchemaBody["region"],
-			tunnel_type: tunnelType,
-			enabled: "on",
-		};
-
-	debugCRTAction("Creating tunnel with body: %O", body);
-
-	// Map options to API format
-	const { data, error } = await $fetch("@post/account/agents/:agentId/tunnels/add", {
-		params: { agentId },
-		body
-	});
-
-	if (error) {
-		throw new Error(`Failed to create tunnel: ${error.message}`);
-	}
-
-	if (waitForAllocation) {
-		if (waitForAllocatedStatus) {
-			debugCRTAction("Waiting for allocation to be allocated");
-			const allocData = data as { allocation: string; status: number };
-			for (let elapsed = 0; elapsed < 5 * 60 * 1000; elapsed += 2000) {
-				const result = await checkAllocationStatus(allocData, options.region);
-				if (result.status !== "pending") {
-					debugCRTAction("Allocation is not pending, returning result");
-					return result;
-				}
-				debugCRTAction("Allocation is pending, waiting +2 seconds before checking again");
-				await new Promise(r => setTimeout(r, 2000));
-			}
-			throw new Error("Allocation did not complete within 5 minutes");
-		}
-
-		return await checkAllocationStatus(data as { allocation: string; status: number }, options.region);
-	}
-
-	// TODO: Return actual allocation data from API response
-	// For now, return placeholder data
-	return {
-		ipHostname: options.region,
-		status: "disabled",
-		reason: "Not checking for allocation status",
-	};
-}
 
 /**
  * Fetches all tunnels for the account.
  * Good if you want to get all tunnels for the account and then filter them by your own criteria.
  */
-export async function GetTunnels(): Promise<Tunnel[]> {
-	const { data, error } = await $fetch("@get/account/settings/allocations");
+export async function GetTunnels(): Promise<z.infer<typeof tunnelsListOutputSchema.shape.data.shape.tunnels>> {
+	const { data, error } = await $fetch("@post/v1/tunnels/list");
 	if (error) {
 		throw new Error(`Failed to fetch tunnels: ${error.message}`);
 	}
-	return data.state.loaderData["routes/account"].tunnels.tunnels;
+	return data.data.tunnels;
 }
 
 /**
@@ -304,23 +204,11 @@ export async function GetTunnels(): Promise<Tunnel[]> {
  * @param tunnelId - The MAIN ID of the tunnel. Do not use the "alloc" id.
  * @returns 
  */
-export async function GetTunnel(tunnelId: string): Promise<Tunnel> {
+export async function GetTunnel(tunnelId: string): Promise<z.infer<typeof tunnelsListOutputSchema.shape.data.shape.tunnels>[number]> {
 	const tunnels = await GetTunnels();
 	const tunnel = tunnels.find(tunnel => tunnel.id === tunnelId);
 	if (!tunnel) {
 		throw new Error(`Tunnel not found: ${tunnelId}`);
 	}
 	return tunnel;
-}
-
-/**
- * Fetches all available allocations for the account.
- * @returns All available allocations for the account.
- */
-export async function GetAvailableAllocations(): Promise<IpAllocation[]> {
-	const { data, error } = await $fetch("@get/account/settings/allocations");
-	if (error) {
-		throw new Error(`Failed to fetch allocations: ${error.message}`);
-	}
-	return data.state.loaderData["routes/account/settings/allocations"].ips.filter((ip): ip is NonNullable<typeof ip> => ip !== undefined);
 }

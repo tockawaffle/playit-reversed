@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
+    secrets:
+      PLAYIT_SECURE_WEBAUTH:
+        required: false
 
 jobs:
   test:
@@ -39,20 +43,20 @@ jobs:
 
       - name: Validate PlayIt API Key
         env:
-          PLAYIT_API_KEY: ${{ secrets.PLAYIT_API_KEY }}
+          PLAYIT_SECURE_WEBAUTH: ${{ secrets.PLAYIT_SECURE_WEBAUTH }}
         run: |
-          if [ -z "$PLAYIT_API_KEY" ]; then
-            echo "::error::PLAYIT_API_KEY secret is not set!"
-            echo "Please add PLAYIT_API_KEY to repository secrets."
+          if [ -z "$PLAYIT_SECURE_WEBAUTH" ]; then
+            echo "::error::PLAYIT_SECURE_WEBAUTH secret is not set!"
+            echo "Please add PLAYIT_SECURE_WEBAUTH to repository secrets."
             echo "Go to Settings -> Secrets and variables -> Actions -> New repository secret"
             exit 1
           fi
 
       - name: Setup PlayIt environment
         env:
-          PLAYIT_API_KEY: ${{ secrets.PLAYIT_API_KEY }}
+          PLAYIT_SECURE_WEBAUTH: ${{ secrets.PLAYIT_SECURE_WEBAUTH }}
         run: |
-          echo "PLAYIT_API_KEY=$PLAYIT_API_KEY" > .env
+          echo "PLAYIT_SECURE_WEBAUTH=$PLAYIT_SECURE_WEBAUTH" > .env
           bun run playit:setup
 
       - name: Run tests

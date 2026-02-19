@@ -6,14 +6,12 @@
  * playit.ts file.
  */
 
-import type { Agent as ApiAgent } from "playit-reversed";
-import type { AllocationResult } from "../actions";
 import type {
+	AgentData,
 	AgentRef,
 	AgentRefById,
-	ApiTunnel,
-	CreateRegionTunnelOptions,
-	CreateStaticIpTunnelOptions,
+	CreateTunnelOptions,
+	TunnelData,
 	TunnelRef,
 	TunnelRefById,
 	UpdateTunnelOptions
@@ -24,57 +22,54 @@ type AgentId = string;
 type TunnelId = string;
 
 // Forward declarations - these functions are defined in actions.ts
-declare function deleteTunnel(tunnelId: TunnelId, csrfToken: string): Promise<void>;
-declare function updateTunnel(tunnelId: TunnelId, options: UpdateTunnelOptions, csrfToken: string): Promise<void>;
-declare function enableTunnel(tunnelId: TunnelId, csrfToken: string): Promise<void>;
-declare function disableTunnel(tunnelId: TunnelId, csrfToken: string): Promise<void>;
-declare function deleteAgent(agentId: AgentId, csrfToken: string): Promise<void>;
-declare function renameAgent(agentId: AgentId, newName: string, csrfToken: string): Promise<void>;
-declare function createStaticIpTunnel(agentId: AgentId, options: CreateStaticIpTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
-declare function createRegionTunnel(agentId: AgentId, options: CreateRegionTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
+declare function deleteTunnel(tunnelId: TunnelId,): Promise<void>;
+declare function updateTunnel(tunnelId: TunnelId, options: UpdateTunnelOptions,): Promise<void>;
+declare function enableTunnel(tunnelId: TunnelId,): Promise<void>;
+declare function disableTunnel(tunnelId: TunnelId,): Promise<void>;
+declare function deleteAgent(agentId: AgentId,): Promise<void>;
+declare function renameAgent(agentId: AgentId, newName: string,): Promise<void>;
+declare function createTunnel(options: CreateTunnelOptions & { agentId: string }, waitForAllocation: boolean): Promise<TunnelData>;
 
 // ============ Factory Functions ============
 
-function createTunnelRef(data: ApiTunnel, csrfToken: string): TunnelRef {
+function createTunnelRef(data: TunnelData,): TunnelRef {
 	return {
 		...data,
-		delete: () => deleteTunnel(data.id, csrfToken),
-		update: (options) => updateTunnel(data.id, options, csrfToken),
-		enable: () => enableTunnel(data.id, csrfToken),
-		disable: () => disableTunnel(data.id, csrfToken),
+		delete: () => deleteTunnel(data.id),
+		update: (options) => updateTunnel(data.id, options),
+		enable: () => enableTunnel(data.id),
+		disable: () => disableTunnel(data.id),
 	};
 }
 
 /** Create a minimal tunnel ref by ID only (for tunnels not in codegen, e.g. newly created) */
-function createTunnelRefById(id: TunnelId, csrfToken: string): TunnelRefById {
+function createTunnelRefById(id: TunnelId,): TunnelRefById {
 	return {
 		id,
-		delete: () => deleteTunnel(id, csrfToken),
-		update: (options) => updateTunnel(id, options, csrfToken),
-		enable: () => enableTunnel(id, csrfToken),
-		disable: () => disableTunnel(id, csrfToken),
+		delete: () => deleteTunnel(id),
+		update: (options) => updateTunnel(id, options),
+		enable: () => enableTunnel(id),
+		disable: () => disableTunnel(id),
 	};
 }
 
-function createAgentRef(data: Omit<ApiAgent, "tunnels">, tunnelRefs: TunnelRef[], csrfToken: string): AgentRef {
+function createAgentRef(data: AgentData, tunnelRefs: TunnelRef[],): AgentRef {
 	return {
 		...data,
 		tunnels: tunnelRefs,
-		createStaticIpTunnel: (options, waitForAllocation, waitForAllocatedStatus) => createStaticIpTunnel(data.id, options, waitForAllocation, waitForAllocatedStatus),
-		createRegionTunnel: (options, waitForAllocation, waitForAllocatedStatus) => createRegionTunnel(data.id, options, waitForAllocation, waitForAllocatedStatus),
-		delete: () => deleteAgent(data.id, csrfToken),
-		rename: (newName) => renameAgent(data.id, newName, csrfToken),
+		createTunnel: async (options) => createTunnelRef(await createTunnel({ ...options, agentId: data.id }, true) as TunnelData),
+		delete: () => deleteAgent(data.id),
+		rename: (newName) => renameAgent(data.id, newName),
 	};
 }
 
 /** Create a minimal agent ref by ID only (for agents not in codegen, e.g. newly created) */
-function createAgentRefById(id: AgentId, csrfToken: string): AgentRefById {
+function createAgentRefById(id: AgentId,): AgentRefById {
 	return {
 		id,
-		createStaticIpTunnel: (options, waitForAllocation, waitForAllocatedStatus) => createStaticIpTunnel(id, options, waitForAllocation, waitForAllocatedStatus),
-		createRegionTunnel: (options, waitForAllocation, waitForAllocatedStatus) => createRegionTunnel(id, options, waitForAllocation, waitForAllocatedStatus),
-		delete: () => deleteAgent(id, csrfToken),
-		rename: (newName) => renameAgent(id, newName, csrfToken),
+		createTunnel: async (options) => createTunnelRef(await createTunnel({ ...options, agentId: id }, true) as TunnelData),
+		delete: () => deleteAgent(id),
+		rename: (newName) => renameAgent(id, newName),
 	};
 }
 

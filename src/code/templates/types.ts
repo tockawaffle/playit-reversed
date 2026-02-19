@@ -9,17 +9,12 @@
  */
 
 // Import actual types from schema for validation
-import type { AllocationResult } from "../actions";
-import type {
-	AccountData,
-	Agent as ApiAgent,
-	IpAllocation as ApiIpAllocation,
-	Tunnel as ApiTunnel,
-	TunnelAllocData as ApiTunnelAllocData
-} from "../main/bfetch/schemas/settings-allocations";
-import { type RegionValue } from "../main/regions";
-
-export type { AccountData, ApiTunnel };
+import type z from "zod";
+import type { agentsListOutputSchema } from "../main/bfetch/schemas/agents-list";
+import type { tunnelsCreateInputSchema } from "../main/bfetch/schemas/tunnels-create";
+import type { tunnelsListOutputSchema } from "../main/bfetch/schemas/tunnels-list";
+import type { allocationsListOutputSchema } from "../main/bfetch/schemas/allocations-list";
+import type { GameTunnelType } from "../main/tunnel-types";
 
 // ============ Codegen Placeholder Types ============
 // These are replaced with actual union types during generation
@@ -59,34 +54,24 @@ export interface PlayitResponse<T> {
 // ============ Tunnel Types ============
 
 /** Tunnel creation options — discriminated by tunnel_type */
-export type CreateStaticIpTunnelOptions = {
-	dedicated_ip: string;
-	__csrf_token: string;
-	public_port: number;
-	readonly enabled: "on" | "off";
+export type CreateTunnelOptions = {
+	name: string;
+	config: z.infer<typeof tunnelsCreateInputSchema.shape.origin.shape.data.shape.config>;
+	endpoint: z.infer<typeof tunnelsCreateInputSchema.shape.endpoint>;
 } & (
 		| {
-			tunnel_type: ApiTunnel["port_type"];
-			"tunnel-desc": string;
-			port_count: number;
-		}
-		| {
-			tunnel_type: Exclude<ApiTunnel["tunnel_type"], "both" | "tcp" | "udp" | null>;
-		}
-	)
-
-export type CreateRegionTunnelOptions = {
-	user: AccountData["account"]
-	csrfToken: string;
-	region: RegionValue;
-} & (
-		{
-			tunnelType: Extract<ApiTunnel["tunnel_type"], "both" | "tcp" | "udp">;
-			tunnelCreationReason: string;
-			localPort: number;
-			portCount: number;
-		} | {
-			tunnelType: Exclude<ApiTunnel["tunnel_type"], "both" | "tcp" | "udp" | null>;
+			protocol: {
+				type: "raw-ports";
+				details: {
+					port_type: "tcp" | "udp" | "both";
+					port_count: number;
+					software_description: string;
+				};
+			}
+			| {
+				type: "tunnel-type";
+				details: GameTunnelType;
+			}
 		}
 	)
 
@@ -97,31 +82,17 @@ export interface UpdateTunnelOptions {
 	localIp?: string;
 }
 
-/**
- * Tunnel allocation when status is "allocated"
- * Based on ApiTunnelAllocData with camelCase property names
- */
-export interface AllocatedTunnelAlloc {
-	readonly status: "allocated";
-	readonly data: NonNullable<NonNullable<ApiTunnelAllocData>>;
-}
+/** Single tunnel data from the API response */
+export type TunnelData = z.infer<typeof tunnelsListOutputSchema.shape.data.shape.tunnels>[number];
 
-/** Tunnel allocation when status is "pending" */
-export interface PendingTunnelAlloc {
-	readonly status: "pending";
-}
+/** Single agent data from the API response */
+export type AgentData = z.infer<typeof agentsListOutputSchema>["data"]["agents"][number];
 
-/** Tunnel allocation when status is "disabled" */
-export interface DisabledTunnelAlloc {
-	readonly status: "disabled";
-	readonly reason: NonNullable<NonNullable<ApiTunnelAllocData>["reason"]>;
-}
-
-/** Tunnel allocation - discriminated union based on status (matches API schema) */
-export type TunnelAlloc = AllocatedTunnelAlloc | PendingTunnelAlloc | DisabledTunnelAlloc;
+/** Single allocation data from the API response */
+export type AllocationData = z.infer<typeof allocationsListOutputSchema>["data"]["ips"][number];
 
 /** Tunnel with actions */
-export interface TunnelRef extends ApiTunnel {
+export interface TunnelRef extends TunnelData {
 	/** Delete this tunnel */
 	delete(): Promise<void>;
 	/** Update this tunnel */
@@ -137,7 +108,7 @@ export interface TunnelRef extends ApiTunnel {
  * Use when the tunnel is not in codegen (e.g. newly created or from another source).
  */
 export interface TunnelRefById {
-	readonly id: ApiTunnel["id"];
+	readonly id: z.infer<typeof tunnelsListOutputSchema.shape.data.shape.tunnels>[number]["id"];
 	delete(): Promise<void>;
 	update(options: UpdateTunnelOptions): Promise<void>;
 	enable(): Promise<void>;
@@ -147,19 +118,9 @@ export interface TunnelRefById {
 // ============ Agent Types ============
 
 /** Agent with actions */
-export interface AgentRef extends ApiAgent {
-	/** Create a new tunnel for this agent
-	 * @param options - The options for the tunnel creation.
-	 * @param waitForAllocation - If true, the function will wait for the allocation to be created before returning.
-	 * @returns The allocation data for the tunnel if waitForAllocation is true and nothing otherwise.
-	 */
-	createStaticIpTunnel(options: CreateStaticIpTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
-	/** Create a new region tunnel for this agent
-	 * @param options - The options for the tunnel creation.
-	 * @param waitForAllocation - If true, the function will wait for the allocation to be created before returning.
-	 * @returns The allocation data for the tunnel if waitForAllocation is true and nothing otherwise.
-	 */
-	createRegionTunnel(options: CreateRegionTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
+export interface AgentRef {
+	readonly id: AgentId;
+	createTunnel(options: CreateTunnelOptions): Promise<TunnelRef>;
 	/** Delete this agent */
 	delete(): Promise<void>;
 	/** Rename this agent */
@@ -173,32 +134,13 @@ export interface AgentRef extends ApiAgent {
  * Use when the agent is not in codegen (e.g. newly created or from another source).
  */
 export interface AgentRefById {
-	readonly id: ApiAgent["id"];
+	readonly id: AgentId;
 	/** Create a new tunnel for this agent
 	 * @param options - The options for the tunnel creation.
 	 * @param waitForAllocation - If true, the function will wait for the allocation to be created before returning.
 	 * @returns The allocation data for the tunnel if waitForAllocation is true and nothing otherwise.
 	 */
-	createStaticIpTunnel(options: CreateStaticIpTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
-	/** Create a new region tunnel for this agent
-	 * @param options - The options for the tunnel creation.
-	 * @param waitForAllocation - If true, the function will wait for the allocation to be created before returning.
-	 * @returns The allocation data for the tunnel if waitForAllocation is true and nothing otherwise.
-	 */
-	createRegionTunnel(options: CreateRegionTunnelOptions, waitForAllocation: boolean, waitForAllocatedStatus: boolean): Promise<AllocationResult>;
+	createTunnel(options: CreateTunnelOptions): Promise<TunnelRef>;
 	delete(): Promise<void>;
 	rename(newName: string): Promise<void>;
-}
-
-// ============ Allocation Types ============
-
-/**
- * IP allocation data
- */
-export interface AllocationData {
-	readonly ip_hostname: ApiIpAllocation["ip_hostname"];
-	readonly sub_id: ApiIpAllocation["sub_id"];
-	readonly region: ApiIpAllocation["region"];
-	readonly ip_type: ApiIpAllocation["ip_type"];
-	readonly gre_target: ApiIpAllocation["gre_target"];
 }

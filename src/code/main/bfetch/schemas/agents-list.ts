@@ -28,7 +28,8 @@ const agentsListOutputSchema = z.object({
 					}),
 				}),
 				routing: z.object({
-					type: z.enum(["Automatic", "Manual"]),
+					type: z.enum(["Region"]),
+					details: z.string()
 				}),
 				routing_disabled_ip6: z.boolean(),
 				sort_num: z.number(),

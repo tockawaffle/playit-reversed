@@ -46,13 +46,11 @@ function extractContent(content: string, options: {
 
 	// Remove placeholder type declarations and their comment
 	if (options.removePlaceholderTypes !== false) {
-		// Remove the comment line and all type declarations that follow
 		result = result.replace(/\/\/\s*Placeholder types[^\n]*\n(?:type\s+\w+\s*=\s*string;\s*\n?)*/g, "");
 	}
 
 	// Remove forward declarations and their comment
 	if (options.removeForwardDeclarations !== false) {
-		// Remove the comment line and all declare function statements that follow
 		result = result.replace(/\/\/\s*Forward declarations[^\n]*\n(?:declare function[^\n]*\n)*/g, "");
 	}
 
@@ -72,39 +70,41 @@ function extractContent(content: string, options: {
 
 /**
  * Get the types template content (for types.ts generation)
+ * 
+ * Instead of including raw template code with z.infer references,
+ * emit clean re-exports from the playit-reversed package.
+ * The types are still validated at compile time via the template files.
  */
 export function getTypesTemplate(): string {
-	const content = readTemplate("types.ts");
-	// Keep the placeholder types section header but remove actual placeholder definitions
-	// They will be replaced with actual union types
-	let result = extractContent(content, {
-		removeHeaderComment: true,
-		removeImports: true,
-		removeExports: true,
-		removePlaceholderTypes: false, // Keep the section, we'll replace it
-		removeForwardDeclarations: true,
-	});
-
-	// Remove the entire placeholder types section (will be replaced with actual types)
-	result = result.replace(/\/\/\s*=+\s*Codegen Placeholder Types\s*=+[\s\S]*?(?=\/\/\s*=+\s*API Response Types)/, "");
-	// Add the new imports for the types at the top of the file
-	result = `import type {
+	return `import type {
 	AllocationResult,
-	Agent as ApiAgent,
-	IpAllocation as ApiIpAllocation,
-	Tunnel as ApiTunnel,
-	TunnelAllocData as ApiTunnelAllocData,
-	TunnelOriginData as ApiTunnelOriginData,
-	TunnelRatelimit as ApiTunnelRatelimit,
-	RegionValue,
-	AccountData
+	CreateTunnelOptions,
+	UpdateTunnelOptions,
+	TunnelRef,
+	TunnelRefById,
+	AgentRef,
+	AgentRefById,
+	PlayitResponse,
+	TunnelData,
+	AgentData,
+	AllocationData,
+	AccountData,
 } from "playit-reversed";
 
-export type { AllocationResult } from "playit-reversed";
-
-` + result;
-
-	return result;
+export type {
+	AllocationResult,
+	CreateTunnelOptions,
+	UpdateTunnelOptions,
+	TunnelRef,
+	TunnelRefById,
+	AgentRef,
+	AgentRefById,
+	PlayitResponse,
+	TunnelData,
+	AgentData,
+	AllocationData,
+	AccountData,
+};`;
 }
 
 /**
@@ -119,11 +119,9 @@ export function getActionsImport(): string {
 	disableTunnel,
 	deleteAgent,
 	renameAgent,
-	createRegionTunnel,
-	createStaticIpTunnel,
+	CreateTunnel as createTunnel,
 	GetTunnels,
 	GetTunnel,
-	GetAvailableAllocations,
 } from "playit-reversed";`;
 }
 
@@ -144,18 +142,28 @@ export function getRegenerateTemplate(): string {
 }
 
 /**
- * Get the imports template content (for playit.ts generation)
- */
-export function getImportsTemplate(): string {
-	const content = readTemplate("imports.ts");
-	return extractContent(content, {
-		removeImports: false
-	});
-}
-
-/**
  * Get the import statements for the generated file header
  */
 export function getHeaderImports(): string {
-	return getImportsTemplate();
+	return `import { spawn } from "child_process";
+
+import type {
+	AgentData,
+	AgentId,
+	AgentKey,
+	AgentName,
+	AgentRef,
+	AgentRefById,
+	AllocationData,
+	AllocationKey,
+	CreateTunnelOptions,
+	PlayitResponse,
+	TunnelData,
+	TunnelId,
+	TunnelKey,
+	TunnelName,
+	TunnelRef,
+	TunnelRefById,
+	UpdateTunnelOptions,
+} from "./types";`;
 }
